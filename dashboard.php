@@ -61,6 +61,18 @@ if ($nextMonth > 12) {
     $nextMonth = 1;
     $nextYear++;
 }
+
+// Get months with requests
+$stmt = $db->query("
+    SELECT DISTINCT 
+        YEAR(event_date) as year, 
+        MONTH(event_date) as month,
+        COUNT(*) as request_count
+    FROM event_requests 
+    GROUP BY YEAR(event_date), MONTH(event_date)
+    ORDER BY year DESC, month DESC
+");
+$monthsWithRequests = $stmt->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -107,6 +119,10 @@ if ($nextMonth > 12) {
         .btn-outline-primary { color: var(--evsu-maroon); border-color: var(--evsu-maroon); }
         .btn-outline-primary:hover { background-color: var(--evsu-maroon); border-color: var(--evsu-maroon); }
         .text-warning { color: var(--gold-dark) !important; }
+        .month-quick-link { font-size: 13px; }
+        .month-quick-link .badge { font-size: 11px; }
+        .btn-outline-secondary { color: #6c757d; border-color: #6c757d; }
+        .btn-outline-secondary:hover { background-color: #6c757d; border-color: #6c757d; color: white; }
     </style>
 </head>
 <body>
@@ -163,6 +179,27 @@ if ($nextMonth > 12) {
                         </a>
                     </div>
                 </div>
+
+                <!-- Month Quick Links -->
+                <?php if (!empty($monthsWithRequests)): ?>
+                <div class="mb-3">
+                    <small class="text-muted d-block mb-2">
+                        <i class="fas fa-calendar-check"></i> Months with requests:
+                    </small>
+                    <div class="d-flex flex-wrap gap-2">
+                        <?php foreach ($monthsWithRequests as $mr): 
+                            $monthLabel = date('F Y', mktime(0, 0, 0, $mr['month'], 1, $mr['year']));
+                            $isActive = ($mr['month'] == $currentMonth && $mr['year'] == $currentYear);
+                        ?>
+                            <a href="?month=<?= $mr['month'] ?>&year=<?= $mr['year'] ?>" 
+                               class="btn btn-sm <?= $isActive ? 'btn-primary' : 'btn-outline-secondary' ?> month-quick-link">
+                                <?= $monthLabel ?>
+                                <span class="badge bg-light text-dark ms-1"><?= $mr['request_count'] ?></span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
 
                 <!-- Calendar -->
                 <div class="calendar-grid">

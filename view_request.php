@@ -24,6 +24,32 @@ $stmt = $db->prepare("SELECT * FROM attachments WHERE request_id = ?");
 $stmt->execute([$requestId]);
 $attachments = $stmt->fetchAll();
 
+// Handle delete
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
+    // Delete attachments from filesystem
+    foreach ($attachments as $file) {
+        if (file_exists($file['file_path'])) {
+            unlink($file['file_path']);
+        }
+    }
+    
+    // Delete from database (cascade should handle related records)
+    $stmt = $db->prepare("DELETE FROM attachments WHERE request_id = ?");
+    $stmt->execute([$requestId]);
+    
+    $stmt = $db->prepare("DELETE FROM pending_actions WHERE request_id = ?");
+    $stmt->execute([$requestId]);
+    
+    $stmt = $db->prepare("DELETE FROM audit_log WHERE request_id = ?");
+    $stmt->execute([$requestId]);
+    
+    $stmt = $db->prepare("DELETE FROM event_requests WHERE id = ?");
+    $stmt->execute([$requestId]);
+    
+    header('Location: dashboard.php?deleted=1');
+    exit;
+}
+
 // Handle approval/disapproval
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $action = $_POST['action'];
@@ -85,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         .description-section { margin-top: 30px; padding-top: 30px; border-top: 1px solid #e9ecef; }
         .attachments-section { margin-top: 30px; padding: 20px; background: #fffbf0; border-radius: 8px; border: 1px solid var(--gold-dark); }
         .attachment-item { display: inline-block; padding: 10px 15px; background: white; border: 1px solid var(--gold-dark); border-radius: 6px; margin: 5px; }
-        .action-buttons { padding: 20px 30px; border-top: 1px solid #e9ecef; display: flex; gap: 10px; justify-content: flex-end; background: #f8f9fa; }
+        .action-buttons { padding: 20px 30px; border-top: 1px solid #e9ecef; display: flex; gap: 10px; justify-content: space-between; background: #f8f9fa; }
         .btn-back { margin-bottom: 20px; }
         .btn-success { background-color: #2e7d32; border-color: #2e7d32; }
         .btn-success:hover { background-color: #1b5e20; border-color: #1b5e20; }
@@ -98,6 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         .modal-header .btn-close { filter: invert(1); }
         .btn-primary { background-color: var(--evsu-maroon); border-color: var(--evsu-maroon); }
         .btn-primary:hover { background-color: var(--maroon-dark); border-color: var(--maroon-dark); }
+        .modal-header.delete-modal { background-color: #c62828; }
     </style>
 </head>
 <body>
@@ -190,16 +217,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             </div>
             
             <!-- Action Buttons -->
-            <?php if ($request['status'] === 'pending'): ?>
             <div class="action-buttons">
-                <button type="button" class="btn btn-danger" onclick="confirmAction('disapprove')">
-                    <i class="fas fa-times"></i> Disapprove
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">
+                    <i class="fas fa-trash"></i> Delete Request
                 </button>
-                <button type="button" class="btn btn-success" onclick="confirmAction('approve')">
-                    <i class="fas fa-check"></i> Approve
-                </button>
+                
+                <?php if ($request['status'] === 'pending'): ?>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-danger" onclick="confirmAction('disapprove')">
+                        <i class="fas fa-times"></i> Disapprove
+                    </button>
+                    <button type="button" class="btn btn-success" onclick="confirmAction('approve')">
+                        <i class="fas fa-check"></i> Approve
+                    </button>
+                </div>
+                <?php endif; ?>
             </div>
-            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header delete-modal">
+                    <h5 class="modal-title">Delete Event Request</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i> <strong>Warning!</strong> This action cannot be undone.
+                    </div>
+                    <p>Are you sure you want to permanently delete this request?</p>
+                    <div class="alert alert-warning">
+                        <strong><?= htmlspecialchars($request['event_name']) ?></strong><br>
+                        <?= htmlspecialchars($request['organization']) ?><br>
+                        <?= formatDate($request['event_date']) ?>
+                    </div>
+                    <p>All associated data including attachments, audit logs, and pending actions will be permanently removed.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form method="POST" style="display: inline;">
+                        <button type="submit" name="delete" class="btn btn-danger">
+                            <i class="fas fa-trash"></i> Delete Permanently
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -225,6 +290,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        function confirmDelete() {
+            const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            modal.show();
+        }
+        
         function confirmAction(action) {
             const eventName = <?= json_encode($request['event_name']) ?>;
             const organization = <?= json_encode($request['organization']) ?>;
