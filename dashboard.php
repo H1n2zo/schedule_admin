@@ -184,6 +184,33 @@ $monthsWithRequests = $stmt->fetchAll();
         .btn-outline-secondary { color: #6c757d; border-color: #6c757d; }
         .btn-outline-secondary:hover { background-color: #6c757d; border-color: #6c757d; color: white; }
         
+        .btn-outline-warning { color: var(--gold-dark); border-color: var(--gold-dark); }
+        .btn-outline-warning:hover, .btn-outline-warning:active, .btn-check:checked + .btn-outline-warning { 
+            background-color: var(--evsu-gold); 
+            border-color: var(--gold-dark); 
+            color: var(--maroon-dark);
+        }
+        
+        .btn-outline-success { color: #2e7d32; border-color: #2e7d32; }
+        .btn-outline-success:hover, .btn-outline-success:active, .btn-check:checked + .btn-outline-success { 
+            background-color: #2e7d32; 
+            border-color: #2e7d32; 
+            color: white;
+        }
+        
+        .btn-outline-danger { color: #c62828; border-color: #c62828; }
+        .btn-outline-danger:hover, .btn-outline-danger:active, .btn-check:checked + .btn-outline-danger { 
+            background-color: #c62828; 
+            border-color: #c62828; 
+            color: white;
+        }
+        
+        .btn-check:checked + .btn-outline-secondary {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            color: white;
+        }
+        
         /* Calendar day with events styling */
         .calendar-day.has-events {
             background: linear-gradient(135deg, #ffffff 0%, #fffef9 100%);
@@ -336,8 +363,31 @@ $monthsWithRequests = $stmt->fetchAll();
                     <h5 class="mb-3">Requests for <?= $monthName ?></h5>
                 <?php endif; ?>
                 
+                <!-- Status Filter Buttons -->
+                <div class="btn-group w-100 mb-3" role="group">
+                    <input type="radio" class="btn-check" name="statusFilter" id="filterAll" autocomplete="off" checked>
+                    <label class="btn btn-outline-secondary btn-sm" for="filterAll" onclick="filterByStatus('all')">
+                        All
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="statusFilter" id="filterPending" autocomplete="off">
+                    <label class="btn btn-outline-warning btn-sm" for="filterPending" onclick="filterByStatus('pending')">
+                        Pending
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="statusFilter" id="filterApproved" autocomplete="off">
+                    <label class="btn btn-outline-success btn-sm" for="filterApproved" onclick="filterByStatus('approved')">
+                        Approved
+                    </label>
+                    
+                    <input type="radio" class="btn-check" name="statusFilter" id="filterDisapproved" autocomplete="off">
+                    <label class="btn btn-outline-danger btn-sm" for="filterDisapproved" onclick="filterByStatus('disapproved')">
+                        Disapproved
+                    </label>
+                </div>
+                
                 <?php if (empty($displayRequests)): ?>
-                    <p class="text-muted">
+                    <p class="text-muted" id="emptyMessage">
                         <?php if ($selectedDate): ?>
                             No requests on this date.
                         <?php else: ?>
@@ -345,8 +395,10 @@ $monthsWithRequests = $stmt->fetchAll();
                         <?php endif; ?>
                     </p>
                 <?php else: ?>
+                    <div id="requestsList">
                     <?php foreach ($displayRequests as $req): ?>
                         <div class="request-list-item <?= $req['status'] ?>" 
+                             data-status="<?= $req['status'] ?>"
                              onclick="viewRequest(<?= $req['id'] ?>)">
                             <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
                             <small class="text-muted">
@@ -358,6 +410,7 @@ $monthsWithRequests = $stmt->fetchAll();
                             </div>
                         </div>
                     <?php endforeach; ?>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
@@ -372,6 +425,41 @@ $monthsWithRequests = $stmt->fetchAll();
         
         function viewRequest(id) {
             window.location.href = 'view_request.php?id=' + id;
+        }
+        
+        function filterByStatus(status) {
+            const items = document.querySelectorAll('.request-list-item');
+            const emptyMessage = document.getElementById('emptyMessage');
+            let visibleCount = 0;
+            
+            items.forEach(item => {
+                if (status === 'all' || item.dataset.status === status) {
+                    item.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+            
+            // Show/hide empty message
+            if (emptyMessage) {
+                if (visibleCount === 0) {
+                    emptyMessage.style.display = 'block';
+                    emptyMessage.textContent = `No ${status === 'all' ? '' : status} requests found.`;
+                } else {
+                    emptyMessage.style.display = 'none';
+                }
+            } else if (visibleCount === 0) {
+                // Create empty message if it doesn't exist
+                const requestsList = document.getElementById('requestsList');
+                if (requestsList) {
+                    const msg = document.createElement('p');
+                    msg.id = 'emptyMessage';
+                    msg.className = 'text-muted';
+                    msg.textContent = `No ${status === 'all' ? '' : status} requests found.`;
+                    requestsList.parentNode.insertBefore(msg, requestsList);
+                }
+            }
         }
     </script>
 </body>
