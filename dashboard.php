@@ -7,6 +7,7 @@ $db = getDB();
 // Get current month and year
 $currentMonth = isset($_GET['month']) ? (int)$_GET['month'] : date('n');
 $currentYear = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
+$selectedDate = isset($_GET['date']) ? $_GET['date'] : null;
 
 // Get requests for the current month
 $stmt = $db->prepare("
@@ -19,6 +20,14 @@ $stmt = $db->prepare("
 ");
 $stmt->execute([$currentMonth, $currentYear]);
 $monthRequests = $stmt->fetchAll();
+
+// Filter for sidebar display
+$displayRequests = $monthRequests;
+if ($selectedDate) {
+    $displayRequests = array_filter($monthRequests, function($req) use ($selectedDate) {
+        return $req['event_date'] === $selectedDate;
+    });
+}
 
 // Get pending actions count
 $stmt = $db->query("SELECT COUNT(*) FROM event_requests WHERE status = 'pending_notification'");
@@ -99,6 +108,7 @@ $monthsWithRequests = $stmt->fetchAll();
         .calendar-day:hover { border-color: var(--evsu-gold); box-shadow: 0 2px 8px rgba(255,215,0,0.3); }
         .calendar-day.empty { background: #f8f9fa; cursor: default; }
         .calendar-day.today { border-color: var(--evsu-maroon); background: var(--maroon-light); border-width: 3px; }
+        .calendar-day.selected { border-color: var(--evsu-gold); background: #fffbf0; border-width: 3px; box-shadow: 0 4px 12px rgba(255,215,0,0.4); }
         .day-number { font-size: 18px; font-weight: bold; color: #495057; margin-bottom: 8px; }
         .event-indicator { font-size: 11px; padding: 3px 8px; border-radius: 12px; margin: 2px 0; display: inline-block; }
         .event-indicator.pending { background: #fff8e1; color: #f57c00; border: 1px solid var(--gold-dark); }
@@ -221,9 +231,10 @@ $monthsWithRequests = $stmt->fetchAll();
                     for ($day = 1; $day <= $daysInMonth; $day++) {
                         $date = sprintf('%04d-%02d-%02d', $currentYear, $currentMonth, $day);
                         $isToday = ($date === date('Y-m-d')) ? 'today' : '';
+                        $isSelected = ($date === $selectedDate) ? 'selected' : '';
                         $requests = $requestsByDate[$date] ?? [];
                         
-                        echo "<div class='calendar-day $isToday'>";
+                        echo "<div class='calendar-day $isToday $isSelected' onclick='selectDate(\"$date\")'>";
                         echo "<div class='day-number'>$day</div>";
                         
                         foreach ($requests as $req) {
@@ -238,14 +249,31 @@ $monthsWithRequests = $stmt->fetchAll();
                 </div>
             </div>
 
-            <!-- Sidebar - Monthly Request List -->
+            <!-- Sidebar - Request List -->
             <div class="col-md-4 p-4 bg-white">
-                <h5 class="mb-3">Requests for <?= $monthName ?></h5>
-                
-                <?php if (empty($monthRequests)): ?>
-                    <p class="text-muted">No requests for this month.</p>
+                <?php if ($selectedDate): ?>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar-day"></i> <?= formatDate($selectedDate) ?>
+                        </h5>
+                        <a href="?month=<?= $currentMonth ?>&year=<?= $currentYear ?>" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-times"></i> Clear
+                        </a>
+                    </div>
                 <?php else: ?>
-                    <?php foreach ($monthRequests as $req): ?>
+                    <h5 class="mb-3">Requests for <?= $monthName ?></h5>
+                <?php endif; ?>
+                
+                <?php if (empty($displayRequests)): ?>
+                    <p class="text-muted">
+                        <?php if ($selectedDate): ?>
+                            No requests on this date.
+                        <?php else: ?>
+                            No requests for this month.
+                        <?php endif; ?>
+                    </p>
+                <?php else: ?>
+                    <?php foreach ($displayRequests as $req): ?>
                         <div class="request-list-item <?= $req['status'] ?>" 
                              onclick="viewRequest(<?= $req['id'] ?>)">
                             <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
@@ -264,6 +292,12 @@ $monthsWithRequests = $stmt->fetchAll();
     </div>
 
     <script>
+        function selectDate(date) {
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('date', date);
+            window.location.href = currentUrl.toString();
+        }
+        
         function viewRequest(id) {
             window.location.href = 'view_request.php?id=' + id;
         }
