@@ -40,14 +40,24 @@ $pendingRequests = $stmt->fetchColumn();
 $stmt = $db->query("SELECT COUNT(*) FROM event_requests WHERE status = 'approved'");
 $approvedRequests = $stmt->fetchColumn();
 
-// Group requests by date for calendar
+// Group requests by date for calendar with counts
 $requestsByDate = [];
+$countsByDate = [];
+$approvedByDate = [];
+
 foreach ($monthRequests as $request) {
     $date = $request['event_date'];
     if (!isset($requestsByDate[$date])) {
         $requestsByDate[$date] = [];
+        $countsByDate[$date] = 0;
+        $approvedByDate[$date] = 0;
     }
     $requestsByDate[$date][] = $request;
+    $countsByDate[$date]++;
+    
+    if ($request['status'] === 'approved') {
+        $approvedByDate[$date]++;
+    }
 }
 
 // Calendar helper functions
@@ -104,16 +114,56 @@ $monthsWithRequests = $stmt->fetchAll();
         .navbar { background: var(--evsu-maroon) !important; }
         .sidebar { min-height: calc(100vh - 56px); background: white; border-right: 1px solid #dee2e6; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-top: 20px; }
-        .calendar-day { background: white; border: 2px solid #e9ecef; border-radius: 8px; padding: 15px; min-height: 120px; cursor: pointer; transition: all 0.2s; }
+        .calendar-day { background: white; border: 2px solid #e9ecef; border-radius: 8px; padding: 15px; min-height: 120px; cursor: pointer; transition: all 0.2s; position: relative; }
         .calendar-day:hover { border-color: var(--evsu-gold); box-shadow: 0 2px 8px rgba(255,215,0,0.3); }
         .calendar-day.empty { background: #f8f9fa; cursor: default; }
         .calendar-day.today { border-color: var(--evsu-maroon); background: var(--maroon-light); border-width: 3px; }
         .calendar-day.selected { border-color: var(--evsu-gold); background: #fffbf0; border-width: 3px; box-shadow: 0 4px 12px rgba(255,215,0,0.4); }
         .day-number { font-size: 18px; font-weight: bold; color: #495057; margin-bottom: 8px; }
-        .event-indicator { font-size: 11px; padding: 3px 8px; border-radius: 12px; margin: 2px 0; display: inline-block; }
-        .event-indicator.pending { background: #fff8e1; color: #f57c00; border: 1px solid var(--gold-dark); }
-        .event-indicator.approved { background: #e8f5e9; color: #2e7d32; }
-        .event-indicator.disapproved { background: #ffebee; color: #c62828; }
+        
+        /* Event count badge */
+        .event-count-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--evsu-maroon);
+            color: white;
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 10px;
+            box-shadow: 0 2px 4px rgba(128,0,0,0.2);
+        }
+        
+        .event-count-badge i {
+            margin-right: 5px;
+            font-size: 11px;
+        }
+        
+        /* Approved check indicator */
+        .approved-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #2e7d32;
+            color: white;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            box-shadow: 0 2px 6px rgba(46,125,50,0.4);
+            animation: checkPulse 2s infinite;
+        }
+        
+        @keyframes checkPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
         .stats-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-top: 3px solid var(--evsu-gold); }
         .stats-card h2 { color: var(--evsu-maroon); }
         .request-list-item { background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #dee2e6; }
@@ -133,6 +183,16 @@ $monthsWithRequests = $stmt->fetchAll();
         .month-quick-link .badge { font-size: 11px; }
         .btn-outline-secondary { color: #6c757d; border-color: #6c757d; }
         .btn-outline-secondary:hover { background-color: #6c757d; border-color: #6c757d; color: white; }
+        
+        /* Calendar day with events styling */
+        .calendar-day.has-events {
+            background: linear-gradient(135deg, #ffffff 0%, #fffef9 100%);
+        }
+        
+        .calendar-day.has-approved {
+            border-color: #2e7d32;
+            border-width: 2px;
+        }
     </style>
 </head>
 <body>
@@ -232,14 +292,26 @@ $monthsWithRequests = $stmt->fetchAll();
                         $date = sprintf('%04d-%02d-%02d', $currentYear, $currentMonth, $day);
                         $isToday = ($date === date('Y-m-d')) ? 'today' : '';
                         $isSelected = ($date === $selectedDate) ? 'selected' : '';
-                        $requests = $requestsByDate[$date] ?? [];
+                        $count = $countsByDate[$date] ?? 0;
+                        $approvedCount = $approvedByDate[$date] ?? 0;
+                        $hasEvents = $count > 0 ? 'has-events' : '';
+                        $hasApproved = $approvedCount > 0 ? 'has-approved' : '';
                         
-                        echo "<div class='calendar-day $isToday $isSelected' onclick='selectDate(\"$date\")'>";
+                        echo "<div class='calendar-day $isToday $isSelected $hasEvents $hasApproved' onclick='selectDate(\"$date\")'>";
                         echo "<div class='day-number'>$day</div>";
                         
-                        foreach ($requests as $req) {
-                            echo "<div class='event-indicator {$req['status']}'>";
-                            echo htmlspecialchars(substr($req['event_name'], 0, 20));
+                        // Show approved indicator if there are approved events
+                        if ($approvedCount > 0) {
+                            echo "<div class='approved-indicator' title='Has approved events'>";
+                            echo "<i class='fas fa-check'></i>";
+                            echo "</div>";
+                        }
+                        
+                        // Show event count badge
+                        if ($count > 0) {
+                            echo "<div class='event-count-badge'>";
+                            echo "<i class='fas fa-calendar'></i> ";
+                            echo "$count event" . ($count > 1 ? 's' : '');
                             echo "</div>";
                         }
                         
