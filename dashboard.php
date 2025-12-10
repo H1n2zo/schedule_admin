@@ -112,7 +112,19 @@ $monthsWithRequests = $stmt->fetchAll();
             --maroon-light: #fff5f5;
         }
         body { background: #f5f7fa; }
-        .navbar { background: var(--evsu-maroon) !important; }
+        .navbar { 
+            background: linear-gradient(135deg, var(--evsu-maroon) 0%, var(--maroon-dark) 100%) !important;
+            box-shadow: 0 2px 10px rgba(128,0,0,0.3);
+        }
+        .navbar-brand {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 700;
+        }
+        .navbar-brand:hover {
+            transform: scale(1.02);
+            color: var(--evsu-gold) !important;
+        }
         .sidebar { min-height: calc(100vh - 56px); background: white; border-right: 1px solid #dee2e6; }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-top: 20px; }
         .calendar-day { background: white; border: 2px solid #e9ecef; border-radius: 8px; padding: 15px; min-height: 120px; cursor: pointer; transition: all 0.2s; position: relative; }
@@ -122,7 +134,6 @@ $monthsWithRequests = $stmt->fetchAll();
         .calendar-day.selected { border-color: var(--evsu-gold); background: #fffbf0; border-width: 3px; box-shadow: 0 4px 12px rgba(255,215,0,0.4); }
         .day-number { font-size: 18px; font-weight: bold; color: #495057; margin-bottom: 8px; }
         
-        /* Event count badge */
         .event-count-badge {
             display: inline-flex;
             align-items: center;
@@ -142,7 +153,6 @@ $monthsWithRequests = $stmt->fetchAll();
             font-size: 11px;
         }
         
-        /* Approved check indicator */
         .approved-indicator {
             position: absolute;
             top: 10px;
@@ -212,7 +222,6 @@ $monthsWithRequests = $stmt->fetchAll();
             color: white;
         }
         
-        /* Calendar day with events styling */
         .calendar-day.has-events {
             background: linear-gradient(135deg, #ffffff 0%, #fffef9 100%);
         }
@@ -227,19 +236,19 @@ $monthsWithRequests = $stmt->fetchAll();
     <!-- Navbar -->
     <nav class="navbar navbar-dark">
         <div class="container-fluid">
-            <span class="navbar-brand">🎓 EVSU Admin Panel</span>
-            <div class="d-flex align-items-center">
-                <a href="pending_actions.php" class="btn btn-warning btn-sm me-3">
+            <a href="dashboard.php" class="navbar-brand">🎓 EVSU Admin Panel</a>
+            <div class="d-flex align-items-center gap-2">
+                <a href="pending_actions.php" class="btn btn-warning btn-sm">
                     <i class="fas fa-bell"></i> Pending Actions (<?= $pendingCount ?>)
                 </a>
-                <span class="text-white me-3"><?= $_SESSION['full_name'] ?></span>
+                <a href="manage_users.php" class="btn btn-light btn-sm">
+                    <i class="fas fa-users-cog"></i> Manage Users
+                </a>
+                <span class="text-white me-2"><?= $_SESSION['full_name'] ?></span>
                 <a href="logout.php" class="btn btn-light btn-sm">Logout</a>
             </div>
         </div>
     </nav>
-    <a href="manage_users.php" class="btn btn-light btn-sm me-3">
-    <i class="fas fa-users-cog"></i> Manage Users
-    </a>
 
     <div class="container-fluid">
         <div class="row">
@@ -331,14 +340,12 @@ $monthsWithRequests = $stmt->fetchAll();
                         echo "<div class='calendar-day $isToday $isSelected $hasEvents $hasApproved' onclick='selectDate(\"$date\")'>";
                         echo "<div class='day-number'>$day</div>";
                         
-                        // Show approved indicator if there are approved events
                         if ($approvedCount > 0) {
                             echo "<div class='approved-indicator' title='Has approved events'>";
                             echo "<i class='fas fa-check'></i>";
                             echo "</div>";
                         }
                         
-                        // Show event count badge
                         if ($count > 0) {
                             echo "<div class='event-count-badge'>";
                             echo "<i class='fas fa-calendar'></i> ";
@@ -445,7 +452,6 @@ $monthsWithRequests = $stmt->fetchAll();
                 }
             });
             
-            // Show/hide empty message
             if (emptyMessage) {
                 if (visibleCount === 0) {
                     emptyMessage.style.display = 'block';
@@ -454,7 +460,6 @@ $monthsWithRequests = $stmt->fetchAll();
                     emptyMessage.style.display = 'none';
                 }
             } else if (visibleCount === 0) {
-                // Create empty message if it doesn't exist
                 const requestsList = document.getElementById('requestsList');
                 if (requestsList) {
                     const msg = document.createElement('p');
