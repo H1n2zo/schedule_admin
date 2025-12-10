@@ -276,7 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
     <nav class="navbar navbar-dark">
-        <div class="container">
+        <div class="container-fluid" style="padding-left: 20px; padding-right: 20px;">
             <a href="index.php" class="navbar-brand">
         EVSU Event Management System
             </a>
