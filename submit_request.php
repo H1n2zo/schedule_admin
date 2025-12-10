@@ -278,7 +278,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <nav class="navbar navbar-dark">
         <div class="container">
             <a href="index.php" class="navbar-brand">
-                🎓 EVSU Event Management System
+        EVSU Event Management System
             </a>
         </div>
     </nav>
@@ -322,7 +322,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="info-box">
                         <h6><i class="fas fa-info-circle"></i> Before You Submit</h6>
                         <ul style="margin: 0; color: #6c757d;">
-                            <li>Make sure your event date is at least 2 weeks from today</li>
+                            <li>Make sure your event date is at least 1 weeks from today</li>
                             <li>Provide detailed description of your event and volunteer needs</li>
                             <li>Attach any supporting documents (proposals, permits, etc.)</li>
                             <li>You will receive email notification about your request status</li>

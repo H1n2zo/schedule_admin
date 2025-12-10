@@ -322,7 +322,7 @@ if (isset($_SESSION['user_id'])) {
             <div class="row align-items-center">
                 <div class="col-lg-6 hero-content">
                     <h1 class="hero-title">
-                        🎓 EVSU Event<br>Management System
+                        EVSU EVENT<br>MANAGEMENT SYSTEM
                     </h1>
                     <p class="hero-subtitle">
                         Streamline your event requests, manage approvals, and coordinate volunteers all in one powerful platform.
