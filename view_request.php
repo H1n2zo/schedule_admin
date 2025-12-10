@@ -125,6 +125,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         .btn-primary { background-color: var(--evsu-maroon); border-color: var(--evsu-maroon); }
         .btn-primary:hover { background-color: var(--maroon-dark); border-color: var(--maroon-dark); }
         .modal-header.delete-modal { background-color: #c62828; }
+        .btn-warning { background-color: var(--evsu-gold); border-color: var(--gold-dark); color: var(--maroon-dark); font-weight: 600; }
+        .btn-warning:hover { background-color: var(--gold-dark); border-color: var(--gold-dark); color: white; }
     </style>
 </head>
 <body>
@@ -230,6 +232,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     <button type="button" class="btn btn-success" onclick="confirmAction('approve')">
                         <i class="fas fa-check"></i> Approve
                     </button>
+                </div>
+                <?php elseif ($request['status'] === 'pending_notification'): ?>
+                <div class="d-flex gap-2">
+                    <a href="pending_actions.php" class="btn btn-warning btn-lg">
+                        <i class="fas fa-bell"></i> Go to Pending Actions
+                    </a>
                 </div>
                 <?php endif; ?>
             </div>

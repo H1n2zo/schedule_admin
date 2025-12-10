@@ -4,6 +4,38 @@ requireAdmin();
 
 $db = getDB();
 
+// Handle cancel action
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cancel_action'])) {
+    $actionId = (int)$_POST['action_id'];
+    $requestId = (int)$_POST['request_id'];
+    
+    // Get the action details first
+    $stmt = $db->prepare("SELECT * FROM pending_actions WHERE id = ?");
+    $stmt->execute([$actionId]);
+    $action = $stmt->fetch();
+    
+    if ($action) {
+        // Return request to pending status
+        $stmt = $db->prepare("UPDATE event_requests SET status = 'pending', reviewed_by = NULL, reviewed_at = NULL WHERE id = ?");
+        $stmt->execute([$requestId]);
+        
+        // Delete the pending action
+        $stmt = $db->prepare("DELETE FROM pending_actions WHERE id = ?");
+        $stmt->execute([$actionId]);
+        
+        // Log the cancellation in audit log
+        $stmt = $db->prepare("
+            INSERT INTO audit_log (request_id, admin_id, action, notes) 
+            VALUES (?, ?, 'notification_sent', ?)
+        ");
+        $cancelNote = "Action cancelled - returned to pending status";
+        $stmt->execute([$requestId, $_SESSION['user_id'], $cancelNote]);
+        
+        header('Location: pending_actions.php?cancelled=1');
+        exit;
+    }
+}
+
 // Get pending actions
 $stmt = $db->query("
     SELECT 
@@ -21,6 +53,7 @@ $stmt = $db->query("
 $pendingActions = $stmt->fetchAll();
 
 $success = isset($_GET['success']) ? true : false;
+$cancelled = isset($_GET['cancelled']) ? true : false;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -51,6 +84,9 @@ $success = isset($_GET['success']) ? true : false;
         .btn-outline-light { border-color: white; color: white; }
         .btn-outline-light:hover { background-color: rgba(255,255,255,0.2); border-color: white; color: white; }
         .alert-info { background-color: #fffbf0; border-color: var(--gold-dark); color: var(--maroon-dark); }
+        .btn-outline-secondary { color: #6c757d; border-color: #6c757d; }
+        .btn-outline-secondary:hover { background-color: #6c757d; border-color: #6c757d; color: white; }
+        .action-buttons { display: flex; gap: 10px; }
     </style>
 </head>
 <body>
@@ -69,6 +105,13 @@ $success = isset($_GET['success']) ? true : false;
         <?php if ($success): ?>
             <div class="alert alert-success alert-dismissible fade show">
                 <i class="fas fa-check-circle"></i> Request has been marked for notification!
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($cancelled): ?>
+            <div class="alert alert-warning alert-dismissible fade show">
+                <i class="fas fa-undo"></i> Action cancelled! Request has been returned to pending status.
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         <?php endif; ?>
@@ -110,10 +153,17 @@ $success = isset($_GET['success']) ? true : false;
                                 </div>
                                 
                                 <div class="col-md-4 d-flex align-items-center justify-content-end">
-                                    <a href="send_notification.php?action_id=<?= $action['action_id'] ?>" 
-                                       class="btn btn-primary btn-lg">
-                                        <i class="fas fa-paper-plane"></i> Send Notification
-                                    </a>
+                                    <div class="action-buttons">
+                                        <button type="button" 
+                                                class="btn btn-outline-secondary" 
+                                                onclick="confirmCancel(<?= $action['action_id'] ?>, <?= $action['id'] ?>, '<?= htmlspecialchars($action['event_name']) ?>')">
+                                            <i class="fas fa-undo"></i> Cancel
+                                        </button>
+                                        <a href="send_notification.php?action_id=<?= $action['action_id'] ?>" 
+                                           class="btn btn-primary btn-lg">
+                                            <i class="fas fa-paper-plane"></i> Send Notification
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -123,6 +173,48 @@ $success = isset($_GET['success']) ? true : false;
         <?php endif; ?>
     </div>
 
+    <!-- Cancel Confirmation Modal -->
+    <div class="modal fade" id="cancelModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #f57c00; color: white;">
+                    <h5 class="modal-title">Cancel Pending Action</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" style="filter: invert(1);"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> <strong>Are you sure?</strong>
+                    </div>
+                    <p>This will return the request back to <strong>Pending</strong> status.</p>
+                    <div class="alert alert-info" id="cancelEventInfo">
+                        <!-- Dynamic content -->
+                    </div>
+                    <p>You'll be able to review and approve/disapprove the request again from the dashboard.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, Keep It</button>
+                    <form method="POST" id="cancelForm">
+                        <input type="hidden" name="action_id" id="cancelActionId">
+                        <input type="hidden" name="request_id" id="cancelRequestId">
+                        <button type="submit" name="cancel_action" class="btn btn-warning">
+                            <i class="fas fa-undo"></i> Yes, Cancel Action
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function confirmCancel(actionId, requestId, eventName) {
+            document.getElementById('cancelActionId').value = actionId;
+            document.getElementById('cancelRequestId').value = requestId;
+            document.getElementById('cancelEventInfo').innerHTML = '<strong>' + eventName + '</strong>';
+            
+            const modal = new bootstrap.Modal(document.getElementById('cancelModal'));
+            modal.show();
+        }
+    </script>
 </body>
 </html>
