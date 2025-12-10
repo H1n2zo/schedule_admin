@@ -1,7 +1,6 @@
 <?php
 session_start();
 
-// Redirect if already logged in
 if (isset($_SESSION['user_id'])) {
     header('Location: dashboard.php');
     exit;
@@ -474,12 +473,21 @@ if (isset($_SESSION['user_id'])) {
         </div>
     </section>
 
-    <!-- Footer -->
     <footer class="footer">
         <div class="container">
             <p>&copy; 2025 Eastern Visayas State University. All rights reserved.</p>
         </div>
     </footer>
+
+    <script>
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
+                e.preventDefault();
+
+                window.location.href = 'login.php';
+            }
+        });
+    </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
