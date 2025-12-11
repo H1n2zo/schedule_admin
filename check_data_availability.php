@@ -11,12 +11,18 @@ require_once 'config.php';
 
 header('Content-Type: application/json');
 
+// Enable error logging for debugging
+error_log("Date availability check requested");
+
 // If a specific date is requested, check that date
 if (isset($_GET['date'])) {
     $date = $_GET['date'];
     
+    error_log("Checking specific date: " . $date);
+    
     // Validate date format
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        error_log("Invalid date format: " . $date);
         echo json_encode(['error' => 'Invalid date format']);
         exit;
     }
@@ -35,6 +41,7 @@ if (isset($_GET['date'])) {
         $result = $stmt->fetch();
         
         if ($result) {
+            error_log("Date $date is OCCUPIED by: " . $result['event_name']);
             echo json_encode([
                 'available' => false,
                 'date' => $date,
@@ -44,12 +51,14 @@ if (isset($_GET['date'])) {
                 ]
             ]);
         } else {
+            error_log("Date $date is AVAILABLE");
             echo json_encode([
                 'available' => true,
                 'date' => $date
             ]);
         }
     } catch (PDOException $e) {
+        error_log("Database error: " . $e->getMessage());
         echo json_encode(['error' => 'Database error']);
     }
     exit;
@@ -68,22 +77,30 @@ try {
     ");
     
     $occupiedDates = [];
+    $count = 0;
     while ($row = $stmt->fetch()) {
         $occupiedDates[$row['event_date']] = [
             'event_name' => $row['event_name'],
             'organization' => $row['organization']
         ];
+        $count++;
     }
+    
+    error_log("Found $count occupied dates");
+    error_log("Occupied dates: " . json_encode(array_keys($occupiedDates)));
     
     echo json_encode([
         'success' => true,
-        'occupied_dates' => $occupiedDates
+        'occupied_dates' => $occupiedDates,
+        'count' => $count
     ]);
     
 } catch (PDOException $e) {
+    error_log("Database error: " . $e->getMessage());
     echo json_encode([
         'success' => false,
-        'error' => 'Database error'
+        'error' => 'Database error',
+        'message' => $e->getMessage()
     ]);
 }
 ?>

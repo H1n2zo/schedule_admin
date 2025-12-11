@@ -267,10 +267,35 @@ include 'includes/navbar.php';
     display: block;
     margin-top: 5px;
     font-weight: 600;
+    padding: 8px 12px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
 }
 
 #dateAvailability.available {
     color: #2e7d32;
+    background: #e8f5e9;
+    border-left: 4px solid #2e7d32;
+}
+
+#dateAvailability.occupied {
+    color: #c62828;
+    font-weight: 700;
+    background: #ffebee;
+    border-left: 4px solid #c62828;
+    animation: shake 0.5s;
+}
+
+#dateAvailability.checking {
+    color: #0288d1;
+    background: #e1f5fe;
+    border-left: 4px solid #0288d1;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
 
 #dateAvailability.occupied {
@@ -308,11 +333,18 @@ input[type="date"]:disabled {
 
 <script>
 let occupiedDates = {};
+let datesLoaded = false;
 
 // Load occupied dates on page load
 document.addEventListener('DOMContentLoaded', function() {
     const dateInput = document.getElementById('eventDateInput');
     const availabilityMsg = document.getElementById('dateAvailability');
+    
+    // Show loading state
+    if (availabilityMsg) {
+        availabilityMsg.className = 'form-text text-muted checking';
+        availabilityMsg.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading available dates...';
+    }
     
     // Fetch occupied dates
     fetch('check_date_availability.php')
@@ -320,51 +352,171 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 occupiedDates = data.occupied_dates;
+                datesLoaded = true;
                 console.log('Occupied dates loaded:', Object.keys(occupiedDates).length);
+                console.log('Occupied dates:', occupiedDates);
+                
+                // Clear loading message
+                if (availabilityMsg) {
+                    availabilityMsg.className = 'form-text text-muted';
+                    availabilityMsg.innerHTML = '<i class="fas fa-info-circle"></i> Select a date to check availability';
+                }
+            } else {
+                console.error('Failed to load occupied dates:', data);
+                if (availabilityMsg) {
+                    availabilityMsg.className = 'form-text text-danger';
+                    availabilityMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error loading dates. Please refresh the page.';
+                }
             }
         })
         .catch(error => {
             console.error('Error loading occupied dates:', error);
+            if (availabilityMsg) {
+                availabilityMsg.className = 'form-text text-danger';
+                availabilityMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error loading dates. Please refresh the page.';
+            }
         });
     
     // Validate date selection
     if (dateInput && availabilityMsg) {
         dateInput.addEventListener('change', function() {
             const selectedDate = this.value;
-            if (!selectedDate) return;
-            
-            // Check if date is occupied
-            if (occupiedDates[selectedDate]) {
-                const event = occupiedDates[selectedDate];
-                availabilityMsg.className = 'form-text occupied';
-                availabilityMsg.innerHTML = `
-                    <i class="fas fa-times-circle"></i> 
-                    This date is occupied by "${event.event_name}" (${event.organization}). 
-                    Please choose another date.
-                `;
-                
-                // Clear the input
-                this.value = '';
-                
-                // Show alert
-                setTimeout(() => {
-                    alert(`Date Unavailable!\n\nThe date you selected already has an approved event:\n\n"${event.event_name}"\nby ${event.organization}\n\nPlease select a different date.`);
-                }, 100);
-            } else {
-                availabilityMsg.className = 'form-text available';
-                availabilityMsg.innerHTML = '<i class="fas fa-check-circle"></i> This date is available!';
+            if (!selectedDate) {
+                availabilityMsg.className = 'form-text text-muted';
+                availabilityMsg.innerHTML = '<i class="fas fa-info-circle"></i> Select a date to check availability';
+                return;
             }
+            
+            // Wait for dates to load before checking
+            if (!datesLoaded) {
+                availabilityMsg.className = 'form-text text-muted checking';
+                availabilityMsg.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking availability...';
+                
+                // Wait a bit and try again
+                setTimeout(() => {
+                    if (datesLoaded) {
+                        checkDateAvailability(selectedDate, this, availabilityMsg);
+                    } else {
+                        availabilityMsg.className = 'form-text text-warning';
+                        availabilityMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Still loading dates, please wait...';
+                    }
+                }, 500);
+                return;
+            }
+            
+            checkDateAvailability(selectedDate, this, availabilityMsg);
         });
         
-        // Block occupied dates using input event
-        dateInput.addEventListener('input', function() {
-            const selectedDate = this.value;
-            if (selectedDate && occupiedDates[selectedDate]) {
-                this.value = '';
+        // Also check when user manually types a date
+        dateInput.addEventListener('blur', function() {
+            if (this.value && datesLoaded && occupiedDates[this.value]) {
+                this.dispatchEvent(new Event('change'));
             }
         });
     }
 });
+
+// Function to check if a date is available
+function checkDateAvailability(selectedDate, inputElement, messageElement) {
+    console.log('Checking date:', selectedDate);
+    console.log('Is occupied?', occupiedDates[selectedDate]);
+    
+    // Check if date is occupied
+    if (occupiedDates[selectedDate]) {
+        const event = occupiedDates[selectedDate];
+        messageElement.className = 'form-text occupied';
+        messageElement.innerHTML = `
+            <i class="fas fa-times-circle"></i> 
+            <strong>NOT AVAILABLE</strong> - This date is already taken by "${event.event_name}" (${event.organization})
+        `;
+        
+        // Show modal
+        showDateConflictModal(event, selectedDate);
+        
+        // Clear the input
+        inputElement.value = '';
+    } else {
+        messageElement.className = 'form-text available';
+        messageElement.innerHTML = '<i class="fas fa-check-circle"></i> <strong>AVAILABLE!</strong> This date is free for your event.';
+    }
+}
+
+// Show date conflict modal
+function showDateConflictModal(event, selectedDate) {
+    // Create modal HTML
+    const modalHTML = `
+        <div class="modal fade" id="dateConflictModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #c62828 0%, #8e0000 100%); color: white;">
+                        <h5 class="modal-title">
+                            <i class="fas fa-calendar-times"></i> Date Not Available
+                        </h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-danger">
+                            <h5 class="mb-3"><i class="fas fa-exclamation-triangle"></i> Date Already Taken</h5>
+                            <p class="mb-2">The date you selected <strong>${formatModalDate(selectedDate)}</strong> already has an approved event:</p>
+                        </div>
+                        
+                        <div class="conflict-event-box">
+                            <h4 class="text-danger mb-2">
+                                <i class="fas fa-calendar-check"></i> ${event.event_name}
+                            </h4>
+                            <p class="mb-0">
+                                <i class="fas fa-building"></i> <strong>Organization:</strong> ${event.organization}
+                            </p>
+                        </div>
+                        
+                        <div class="alert alert-warning mt-3">
+                            <h6><i class="fas fa-info-circle"></i> What you can do:</h6>
+                            <ul class="mb-0">
+                                <li>Choose a different date for your event</li>
+                                <li>Check the calendar for available dates</li>
+                                <li>Only one event can be approved per date</li>
+                            </ul>
+                        </div>
+                        
+                        <p class="text-muted text-center mt-3 mb-0">
+                            <small>Please select another date to continue with your request.</small>
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                            <i class="fas fa-calendar-alt"></i> Choose Different Date
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('dateConflictModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('dateConflictModal'));
+    modal.show();
+    
+    // Remove modal from DOM after it's hidden
+    document.getElementById('dateConflictModal').addEventListener('hidden.bs.modal', function() {
+        this.remove();
+    });
+}
+
+// Format date for modal display
+function formatModalDate(dateString) {
+    const date = new Date(dateString + 'T00:00:00');
+    const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
+    return date.toLocaleDateString('en-US', options);
+}
 
 // Display uploaded files
 function displayFiles(input) {
