@@ -1,0 +1,225 @@
+/**
+ * EVSU Event Management System
+ * Authentication Styles
+ * File: assets/css/auth.css
+ */
+
+/* ============================================
+   Login Page Body
+   ============================================ */
+body.auth-page {
+    background: linear-gradient(135deg, var(--evsu-maroon) 0%, var(--maroon-dark) 100%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+body.auth-page::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: url('data:image/svg+xml,<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><pattern id="grid" width="100" height="100" patternUnits="userSpaceOnUse"><path d="M 100 0 L 0 0 0 100" fill="none" stroke="rgba(255,215,0,0.1)" stroke-width="1"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grid)"/></svg>');
+    opacity: 0.3;
+}
+
+/* ============================================
+   Login Container
+   ============================================ */
+.login-container {
+    background: white;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(128, 0, 0, 0.3);
+    max-width: 450px;
+    width: 100%;
+    border-top: 5px solid var(--evsu-gold);
+    position: relative;
+    z-index: 1;
+    animation: slideInDown 0.5s ease;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-header h1 {
+    color: var(--evsu-maroon);
+    font-size: 24px;
+    margin-bottom: 10px;
+    font-weight: 800;
+}
+
+.login-header p {
+    color: #6c757d;
+    margin: 0;
+    font-size: 0.95rem;
+}
+
+/* ============================================
+   Login Form Elements
+   ============================================ */
+.login-container .form-label {
+    color: var(--evsu-maroon);
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.login-container .form-control {
+    border: 2px solid #dee2e6;
+    padding: 12px 15px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.login-container .form-control:focus {
+    border-color: var(--evsu-gold);
+    box-shadow: 0 0 0 0.2rem rgba(255, 215, 0, 0.25);
+}
+
+.login-container .btn-primary {
+    background: var(--evsu-maroon);
+    border: none;
+    padding: 12px;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.login-container .btn-primary:hover {
+    background: var(--maroon-dark);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(128, 0, 0, 0.3);
+}
+
+/* ============================================
+   Back Link
+   ============================================ */
+.back-link {
+    text-align: center;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #dee2e6;
+}
+
+.back-link a {
+    color: var(--evsu-maroon);
+    text-decoration: none;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    display: inline-block;
+}
+
+.back-link a:hover {
+    text-decoration: underline;
+    color: var(--maroon-dark);
+    transform: translateX(-3px);
+}
+
+/* ============================================
+   Alert Messages in Login
+   ============================================ */
+.login-container .alert {
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.login-container .alert-danger {
+    background-color: #f8d7da;
+    border: 1px solid #f5c2c7;
+    color: #842029;
+}
+
+.login-container .alert-success {
+    background-color: #d1e7dd;
+    border: 1px solid #badbcc;
+    color: #0f5132;
+}
+
+/* ============================================
+   Responsive Login
+   ============================================ */
+@media (max-width: 576px) {
+    body.auth-page {
+        padding: 15px;
+    }
+    
+    .login-container {
+        padding: 30px 20px;
+    }
+    
+    .login-header h1 {
+        font-size: 20px;
+    }
+    
+    .login-header p {
+        font-size: 0.85rem;
+    }
+}
+
+/* ============================================
+   Loading State
+   ============================================ */
+.login-container .btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.login-container .btn-primary.loading::after {
+    content: '';
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-left: 10px;
+    border: 2px solid white;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ============================================
+   Remember Me Checkbox
+   ============================================ */
+.form-check {
+    margin-bottom: 15px;
+}
+
+.form-check-input:checked {
+    background-color: var(--evsu-maroon);
+    border-color: var(--evsu-maroon);
+}
+
+.form-check-input:focus {
+    border-color: var(--evsu-gold);
+    box-shadow: 0 0 0 0.2rem rgba(255, 215, 0, 0.25);
+}
+
+.form-check-label {
+    color: #6c757d;
+    font-size: 0.9rem;
+}

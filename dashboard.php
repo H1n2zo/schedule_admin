@@ -1,6 +1,17 @@
 <?php
+/**
+ * EVSU Event Management System
+ * Dashboard Page - Updated with External Assets
+ * File: dashboard.php
+ */
+
 require_once 'config.php';
 requireAdmin();
+
+// Set page configuration
+$pageTitle = 'Dashboard - EVSU Admin Panel';
+$customCSS = ['dashboard']; // Loads assets/css/dashboard.css
+$customJS = ['dashboard']; // Loads assets/js/dashboard.js
 
 $db = getDB();
 
@@ -92,384 +103,192 @@ $stmt = $db->query("
     ORDER BY year DESC, month DESC
 ");
 $monthsWithRequests = $stmt->fetchAll();
+
+// Include header
+include 'includes/header.php';
+
+// Include navbar
+include 'includes/navbar.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - EVSU Admin Panel</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <style>
-        :root {
-            --evsu-maroon: #800000;
-            --evsu-gold: #FFD700;
-            --evsu-white: #FFFFFF;
-            --maroon-dark: #5c0000;
-            --gold-dark: #d4af37;
-            --maroon-light: #fff5f5;
-        }
-        body { background: #f5f7fa; }
-        .navbar { 
-            background: linear-gradient(135deg, var(--evsu-maroon) 0%, var(--maroon-dark) 100%) !important;
-            box-shadow: 0 2px 10px rgba(128,0,0,0.3);
-        }
-        .navbar-brand {
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 700;
-        }
-        .navbar-brand:hover {
-            transform: scale(1.02);
-            color: var(--evsu-gold) !important;
-        }
-        .sidebar { min-height: calc(100vh - 56px); background: white; border-right: 1px solid #dee2e6; }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; margin-top: 20px; }
-        .calendar-day { background: white; border: 2px solid #e9ecef; border-radius: 8px; padding: 15px; min-height: 120px; cursor: pointer; transition: all 0.2s; position: relative; }
-        .calendar-day:hover { border-color: var(--evsu-gold); box-shadow: 0 2px 8px rgba(255,215,0,0.3); }
-        .calendar-day.empty { background: #f8f9fa; cursor: default; }
-        .calendar-day.today { border-color: var(--evsu-maroon); background: var(--maroon-light); border-width: 3px; }
-        .calendar-day.selected { border-color: var(--evsu-gold); background: #fffbf0; border-width: 3px; box-shadow: 0 4px 12px rgba(255,215,0,0.4); }
-        .day-number { font-size: 18px; font-weight: bold; color: #495057; margin-bottom: 8px; }
-        
-        .event-count-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--evsu-maroon);
-            color: white;
-            border-radius: 20px;
-            padding: 6px 12px;
-            font-size: 13px;
-            font-weight: 600;
-            margin-top: 10px;
-            box-shadow: 0 2px 4px rgba(128,0,0,0.2);
-        }
-        
-        .event-count-badge i {
-            margin-right: 5px;
-            font-size: 11px;
-        }
-        
-        .approved-indicator {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #2e7d32;
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            box-shadow: 0 2px 6px rgba(46,125,50,0.4);
-            animation: checkPulse 2s infinite;
-        }
-        
-        @keyframes checkPulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-        
-        .stats-card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); border-top: 3px solid var(--evsu-gold); }
-        .stats-card h2 { color: var(--evsu-maroon); }
-        .request-list-item { background: white; border-radius: 8px; padding: 15px; margin-bottom: 10px; cursor: pointer; transition: all 0.2s; border-left: 4px solid #dee2e6; }
-        .request-list-item:hover { box-shadow: 0 2px 8px rgba(128,0,0,0.15); transform: translateX(5px); }
-        .request-list-item.pending { border-left-color: var(--gold-dark); }
-        .request-list-item.approved { border-left-color: #28a745; }
-        .request-list-item.disapproved { border-left-color: #dc3545; }
-        .badge { padding: 5px 10px; }
-        .btn-warning { background-color: var(--evsu-gold); border-color: var(--gold-dark); color: var(--maroon-dark); font-weight: 600; }
-        .btn-warning:hover { background-color: var(--gold-dark); border-color: var(--gold-dark); color: white; }
-        .btn-primary { background-color: var(--evsu-maroon); border-color: var(--evsu-maroon); }
-        .btn-primary:hover { background-color: var(--maroon-dark); border-color: var(--maroon-dark); }
-        .btn-outline-primary { color: var(--evsu-maroon); border-color: var(--evsu-maroon); }
-        .btn-outline-primary:hover { background-color: var(--evsu-maroon); border-color: var(--evsu-maroon); }
-        .text-warning { color: var(--gold-dark) !important; }
-        .month-quick-link { font-size: 13px; }
-        .month-quick-link .badge { font-size: 11px; }
-        .btn-outline-secondary { color: #6c757d; border-color: #6c757d; }
-        .btn-outline-secondary:hover { background-color: #6c757d; border-color: #6c757d; color: white; }
-        
-        .btn-outline-warning { color: var(--gold-dark); border-color: var(--gold-dark); }
-        .btn-outline-warning:hover, .btn-outline-warning:active, .btn-check:checked + .btn-outline-warning { 
-            background-color: var(--evsu-gold); 
-            border-color: var(--gold-dark); 
-            color: var(--maroon-dark);
-        }
-        
-        .btn-outline-success { color: #2e7d32; border-color: #2e7d32; }
-        .btn-outline-success:hover, .btn-outline-success:active, .btn-check:checked + .btn-outline-success { 
-            background-color: #2e7d32; 
-            border-color: #2e7d32; 
-            color: white;
-        }
-        
-        .btn-outline-danger { color: #c62828; border-color: #c62828; }
-        .btn-outline-danger:hover, .btn-outline-danger:active, .btn-check:checked + .btn-outline-danger { 
-            background-color: #c62828; 
-            border-color: #c62828; 
-            color: white;
-        }
-        
-        .btn-check:checked + .btn-outline-secondary {
-            background-color: #6c757d;
-            border-color: #6c757d;
-            color: white;
-        }
-        
-        .calendar-day.has-events {
-            background: linear-gradient(135deg, #ffffff 0%, #fffef9 100%);
-        }
-        
-        .calendar-day.has-approved {
-            border-color: #2e7d32;
-            border-width: 2px;
-        }
-    </style>
-</head>
-<body>
-    <!-- Navbar -->
-    <nav class="navbar navbar-dark">
-        <div class="container-fluid">
-            <a href="dashboard.php" class="navbar-brand">🎓 EVSU Admin Panel</a>
-            <div class="d-flex align-items-center gap-2">
-                <a href="pending_actions.php" class="btn btn-warning btn-sm">
-                    <i class="fas fa-bell"></i> Pending Actions (<?= $pendingCount ?>)
-                </a>
-                <a href="manage_users.php" class="btn btn-light btn-sm">
-                    <i class="fas fa-users-cog"></i> Manage Users
-                </a>
-                <span class="text-white me-2"><?= $_SESSION['full_name'] ?></span>
-                <a href="logout.php" class="btn btn-light btn-sm">Logout</a>
+<div class="container-fluid">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-md-8 p-4">
+            <!-- Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="stats-card">
+                        <h6 class="text-muted">Pending Requests</h6>
+                        <h2 class="text-warning"><?= $pendingRequests ?></h2>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stats-card">
+                        <h6 class="text-muted">Approved Events</h6>
+                        <h2 class="text-success"><?= $approvedRequests ?></h2>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stats-card">
+                        <h6 class="text-muted">Pending Actions</h6>
+                        <h2 class="text-info"><?= $pendingCount ?></h2>
+                    </div>
+                </div>
             </div>
-        </div>
-    </nav>
 
-    <div class="container-fluid">
-        <div class="row">
-            <!-- Main Content -->
-            <div class="col-md-8 p-4">
-                <!-- Stats Cards -->
-                <div class="row mb-4">
-                    <div class="col-md-4">
-                        <div class="stats-card">
-                            <h6 class="text-muted">Pending Requests</h6>
-                            <h2 class="text-warning"><?= $pendingRequests ?></h2>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="stats-card">
-                            <h6 class="text-muted">Approved Events</h6>
-                            <h2 class="text-success"><?= $approvedRequests ?></h2>
-                        </div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="stats-card">
-                            <h6 class="text-muted">Pending Actions</h6>
-                            <h2 class="text-info"><?= $pendingCount ?></h2>
-                        </div>
-                    </div>
+            <!-- Calendar Navigation -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4><?= $monthName ?></h4>
+                <div>
+                    <button onclick="navigateMonth(<?= $prevMonth ?>, <?= $prevYear ?>)" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-chevron-left"></i> Prev
+                    </button>
+                    <a href="dashboard.php" class="btn btn-sm btn-primary">Today</a>
+                    <button onclick="navigateMonth(<?= $nextMonth ?>, <?= $nextYear ?>)" class="btn btn-sm btn-outline-primary">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
                 </div>
+            </div>
 
-                <!-- Calendar Navigation -->
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4><?= $monthName ?></h4>
-                    <div>
-                        <a href="?month=<?= $prevMonth ?>&year=<?= $prevYear ?>" class="btn btn-sm btn-outline-primary">
-                            <i class="fas fa-chevron-left"></i> Prev
-                        </a>
-                        <a href="dashboard.php" class="btn btn-sm btn-primary">Today</a>
-                        <a href="?month=<?= $nextMonth ?>&year=<?= $nextYear ?>" class="btn btn-sm btn-outline-primary">
-                            Next <i class="fas fa-chevron-right"></i>
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Month Quick Links -->
-                <?php if (!empty($monthsWithRequests)): ?>
-                <div class="mb-3">
-                    <small class="text-muted d-block mb-2">
-                        <i class="fas fa-calendar-check"></i> Months with requests:
-                    </small>
-                    <div class="d-flex flex-wrap gap-2">
-                        <?php foreach ($monthsWithRequests as $mr): 
-                            $monthLabel = date('F Y', mktime(0, 0, 0, $mr['month'], 1, $mr['year']));
-                            $isActive = ($mr['month'] == $currentMonth && $mr['year'] == $currentYear);
-                        ?>
-                            <a href="?month=<?= $mr['month'] ?>&year=<?= $mr['year'] ?>" 
+            <!-- Month Quick Links -->
+            <?php if (!empty($monthsWithRequests)): ?>
+            <div class="mb-3">
+                <small class="text-muted d-block mb-2">
+                    <i class="fas fa-calendar-check"></i> Months with requests:
+                </small>
+                <div class="d-flex flex-wrap gap-2">
+                    <?php foreach ($monthsWithRequests as $mr): 
+                        $monthLabel = date('F Y', mktime(0, 0, 0, $mr['month'], 1, $mr['year']));
+                        $isActive = ($mr['month'] == $currentMonth && $mr['year'] == $currentYear);
+                    ?>
+                        <button onclick="navigateMonth(<?= $mr['month'] ?>, <?= $mr['year'] ?>)" 
                                class="btn btn-sm <?= $isActive ? 'btn-primary' : 'btn-outline-secondary' ?> month-quick-link">
-                                <?= $monthLabel ?>
-                                <span class="badge bg-light text-dark ms-1"><?= $mr['request_count'] ?></span>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
+                            <?= $monthLabel ?>
+                            <span class="badge bg-light text-dark ms-1"><?= $mr['request_count'] ?></span>
+                        </button>
+                    <?php endforeach; ?>
                 </div>
-                <?php endif; ?>
+            </div>
+            <?php endif; ?>
 
-                <!-- Calendar -->
-                <div class="calendar-grid">
-                    <div class="text-center fw-bold">Sun</div>
-                    <div class="text-center fw-bold">Mon</div>
-                    <div class="text-center fw-bold">Tue</div>
-                    <div class="text-center fw-bold">Wed</div>
-                    <div class="text-center fw-bold">Thu</div>
-                    <div class="text-center fw-bold">Fri</div>
-                    <div class="text-center fw-bold">Sat</div>
+            <!-- Calendar -->
+            <div class="calendar-grid">
+                <div class="text-center fw-bold">Sun</div>
+                <div class="text-center fw-bold">Mon</div>
+                <div class="text-center fw-bold">Tue</div>
+                <div class="text-center fw-bold">Wed</div>
+                <div class="text-center fw-bold">Thu</div>
+                <div class="text-center fw-bold">Fri</div>
+                <div class="text-center fw-bold">Sat</div>
 
-                    <?php
-                    // Empty cells before first day
-                    for ($i = 0; $i < $dayOfWeek; $i++) {
-                        echo '<div class="calendar-day empty"></div>';
-                    }
+                <?php
+                // Empty cells before first day
+                for ($i = 0; $i < $dayOfWeek; $i++) {
+                    echo '<div class="calendar-day empty"></div>';
+                }
+                
+                // Days of the month
+                for ($day = 1; $day <= $daysInMonth; $day++) {
+                    $date = sprintf('%04d-%02d-%02d', $currentYear, $currentMonth, $day);
+                    $isToday = ($date === date('Y-m-d')) ? 'today' : '';
+                    $isSelected = ($date === $selectedDate) ? 'selected' : '';
+                    $count = $countsByDate[$date] ?? 0;
+                    $approvedCount = $approvedByDate[$date] ?? 0;
+                    $hasEvents = $count > 0 ? 'has-events' : '';
+                    $hasApproved = $approvedCount > 0 ? 'has-approved' : '';
                     
-                    // Days of the month
-                    for ($day = 1; $day <= $daysInMonth; $day++) {
-                        $date = sprintf('%04d-%02d-%02d', $currentYear, $currentMonth, $day);
-                        $isToday = ($date === date('Y-m-d')) ? 'today' : '';
-                        $isSelected = ($date === $selectedDate) ? 'selected' : '';
-                        $count = $countsByDate[$date] ?? 0;
-                        $approvedCount = $approvedByDate[$date] ?? 0;
-                        $hasEvents = $count > 0 ? 'has-events' : '';
-                        $hasApproved = $approvedCount > 0 ? 'has-approved' : '';
-                        
-                        echo "<div class='calendar-day $isToday $isSelected $hasEvents $hasApproved' onclick='selectDate(\"$date\")'>";
-                        echo "<div class='day-number'>$day</div>";
-                        
-                        if ($approvedCount > 0) {
-                            echo "<div class='approved-indicator' title='Has approved events'>";
-                            echo "<i class='fas fa-check'></i>";
-                            echo "</div>";
-                        }
-                        
-                        if ($count > 0) {
-                            echo "<div class='event-count-badge'>";
-                            echo "<i class='fas fa-calendar'></i> ";
-                            echo "$count event" . ($count > 1 ? 's' : '');
-                            echo "</div>";
-                        }
-                        
+                    echo "<div class='calendar-day $isToday $isSelected $hasEvents $hasApproved' data-date='$date' onclick='selectDate(\"$date\")'>";
+                    echo "<div class='day-number'>$day</div>";
+                    
+                    if ($approvedCount > 0) {
+                        echo "<div class='approved-indicator' title='Has approved events'>";
+                        echo "<i class='fas fa-check'></i>";
                         echo "</div>";
                     }
-                    ?>
-                </div>
-            </div>
-
-            <!-- Sidebar - Request List -->
-            <div class="col-md-4 p-4 bg-white">
-                <?php if ($selectedDate): ?>
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="mb-0">
-                            <i class="fas fa-calendar-day"></i> <?= formatDate($selectedDate) ?>
-                        </h5>
-                        <a href="?month=<?= $currentMonth ?>&year=<?= $currentYear ?>" class="btn btn-sm btn-outline-secondary">
-                            <i class="fas fa-times"></i> Clear
-                        </a>
-                    </div>
-                <?php else: ?>
-                    <h5 class="mb-3">Requests for <?= $monthName ?></h5>
-                <?php endif; ?>
-                
-                <!-- Status Filter Buttons -->
-                <div class="btn-group w-100 mb-3" role="group">
-                    <input type="radio" class="btn-check" name="statusFilter" id="filterAll" autocomplete="off" checked>
-                    <label class="btn btn-outline-secondary btn-sm" for="filterAll" onclick="filterByStatus('all')">
-                        All
-                    </label>
                     
-                    <input type="radio" class="btn-check" name="statusFilter" id="filterPending" autocomplete="off">
-                    <label class="btn btn-outline-warning btn-sm" for="filterPending" onclick="filterByStatus('pending')">
-                        Pending
-                    </label>
+                    if ($count > 0) {
+                        echo "<div class='event-count-badge'>";
+                        echo "<i class='fas fa-calendar'></i> ";
+                        echo "$count event" . ($count > 1 ? 's' : '');
+                        echo "</div>";
+                    }
                     
-                    <input type="radio" class="btn-check" name="statusFilter" id="filterApproved" autocomplete="off">
-                    <label class="btn btn-outline-success btn-sm" for="filterApproved" onclick="filterByStatus('approved')">
-                        Approved
-                    </label>
-                    
-                    <input type="radio" class="btn-check" name="statusFilter" id="filterDisapproved" autocomplete="off">
-                    <label class="btn btn-outline-danger btn-sm" for="filterDisapproved" onclick="filterByStatus('disapproved')">
-                        Disapproved
-                    </label>
-                </div>
-                
-                <?php if (empty($displayRequests)): ?>
-                    <p class="text-muted" id="emptyMessage">
-                        <?php if ($selectedDate): ?>
-                            No requests on this date.
-                        <?php else: ?>
-                            No requests for this month.
-                        <?php endif; ?>
-                    </p>
-                <?php else: ?>
-                    <div id="requestsList">
-                    <?php foreach ($displayRequests as $req): ?>
-                        <div class="request-list-item <?= $req['status'] ?>" 
-                             data-status="<?= $req['status'] ?>"
-                             onclick="viewRequest(<?= $req['id'] ?>)">
-                            <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
-                            <small class="text-muted">
-                                <?= htmlspecialchars($req['organization']) ?><br>
-                                <?= formatDate($req['event_date']) ?> at <?= formatTime($req['event_time']) ?>
-                            </small>
-                            <div class="mt-2">
-                                <?= getStatusBadge($req['status']) ?>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
+                    echo "</div>";
+                }
+                ?>
             </div>
         </div>
-    </div>
 
-    <script>
-        function selectDate(date) {
-            const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('date', date);
-            window.location.href = currentUrl.toString();
-        }
-        
-        function viewRequest(id) {
-            window.location.href = 'view_request.php?id=' + id;
-        }
-        
-        function filterByStatus(status) {
-            const items = document.querySelectorAll('.request-list-item');
-            const emptyMessage = document.getElementById('emptyMessage');
-            let visibleCount = 0;
+        <!-- Sidebar - Request List -->
+        <div class="col-md-4 p-4 bg-white">
+            <?php if ($selectedDate): ?>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-day"></i> <?= formatDate($selectedDate) ?>
+                    </h5>
+                    <button onclick="clearDateFilter()" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            <?php else: ?>
+                <h5 class="mb-3">Requests for <?= $monthName ?></h5>
+            <?php endif; ?>
             
-            items.forEach(item => {
-                if (status === 'all' || item.dataset.status === status) {
-                    item.style.display = 'block';
-                    visibleCount++;
-                } else {
-                    item.style.display = 'none';
-                }
-            });
+            <!-- Status Filter Buttons -->
+            <div class="btn-group w-100 mb-3" role="group">
+                <input type="radio" class="btn-check" name="statusFilter" id="filterAll" autocomplete="off" checked>
+                <label class="btn btn-outline-secondary btn-sm" for="filterAll" onclick="filterByStatus('all')">
+                    All
+                </label>
+                
+                <input type="radio" class="btn-check" name="statusFilter" id="filterPending" autocomplete="off">
+                <label class="btn btn-outline-warning btn-sm" for="filterPending" onclick="filterByStatus('pending')">
+                    Pending
+                </label>
+                
+                <input type="radio" class="btn-check" name="statusFilter" id="filterApproved" autocomplete="off">
+                <label class="btn btn-outline-success btn-sm" for="filterApproved" onclick="filterByStatus('approved')">
+                    Approved
+                </label>
+                
+                <input type="radio" class="btn-check" name="statusFilter" id="filterDisapproved" autocomplete="off">
+                <label class="btn btn-outline-danger btn-sm" for="filterDisapproved" onclick="filterByStatus('disapproved')">
+                    Disapproved
+                </label>
+            </div>
             
-            if (emptyMessage) {
-                if (visibleCount === 0) {
-                    emptyMessage.style.display = 'block';
-                    emptyMessage.textContent = `No ${status === 'all' ? '' : status} requests found.`;
-                } else {
-                    emptyMessage.style.display = 'none';
-                }
-            } else if (visibleCount === 0) {
-                const requestsList = document.getElementById('requestsList');
-                if (requestsList) {
-                    const msg = document.createElement('p');
-                    msg.id = 'emptyMessage';
-                    msg.className = 'text-muted';
-                    msg.textContent = `No ${status === 'all' ? '' : status} requests found.`;
-                    requestsList.parentNode.insertBefore(msg, requestsList);
-                }
-            }
-        }
-    </script>
-</body>
-</html>
+            <?php if (empty($displayRequests)): ?>
+                <p class="text-muted" id="emptyMessage">
+                    <?php if ($selectedDate): ?>
+                        No requests on this date.
+                    <?php else: ?>
+                        No requests for this month.
+                    <?php endif; ?>
+                </p>
+            <?php else: ?>
+                <div id="requestsList">
+                <?php foreach ($displayRequests as $req): ?>
+                    <div class="request-list-item <?= $req['status'] ?>" 
+                         data-status="<?= $req['status'] ?>"
+                         onclick="viewRequest(<?= $req['id'] ?>)">
+                        <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
+                        <small class="text-muted">
+                            <?= htmlspecialchars($req['organization']) ?><br>
+                            <?= formatDate($req['event_date']) ?> at <?= formatTime($req['event_time']) ?>
+                        </small>
+                        <div class="mt-2">
+                            <?= getStatusBadge($req['status']) ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<?php
+// Include footer
+include 'includes/footer.php';
+?>
