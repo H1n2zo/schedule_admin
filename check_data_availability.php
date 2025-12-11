@@ -1,14 +1,61 @@
 <?php
 /**
  * EVSU Event Management System
- * Date Availability API
+ * Date Availability API - Returns ALL occupied dates
  * File: check_date_availability.php
+ * 
+ * IMPORTANT: Save this file as "check_date_availability.php" (not check_DATA_availability.php)
  */
 
 require_once 'config.php';
 
 header('Content-Type: application/json');
 
+// If a specific date is requested, check that date
+if (isset($_GET['date'])) {
+    $date = $_GET['date'];
+    
+    // Validate date format
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        echo json_encode(['error' => 'Invalid date format']);
+        exit;
+    }
+    
+    try {
+        $db = getDB();
+        
+        // Check if this specific date has an approved event
+        $stmt = $db->prepare("
+            SELECT event_name, organization 
+            FROM event_requests 
+            WHERE event_date = ? AND status = 'approved'
+            LIMIT 1
+        ");
+        $stmt->execute([$date]);
+        $result = $stmt->fetch();
+        
+        if ($result) {
+            echo json_encode([
+                'available' => false,
+                'date' => $date,
+                'conflict' => [
+                    'event_name' => $result['event_name'],
+                    'organization' => $result['organization']
+                ]
+            ]);
+        } else {
+            echo json_encode([
+                'available' => true,
+                'date' => $date
+            ]);
+        }
+    } catch (PDOException $e) {
+        echo json_encode(['error' => 'Database error']);
+    }
+    exit;
+}
+
+// Otherwise, return ALL occupied dates (for blocking in date picker)
 try {
     $db = getDB();
     
