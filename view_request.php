@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * View Request Page - Updated with External Assets
+ * View Request Page - Direct Approve/Decline with Notification
  * File: view_request.php
  */
 
@@ -48,9 +48,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
     $stmt = $db->prepare("DELETE FROM attachments WHERE request_id = ?");
     $stmt->execute([$requestId]);
     
-    $stmt = $db->prepare("DELETE FROM pending_actions WHERE request_id = ?");
-    $stmt->execute([$requestId]);
-    
     $stmt = $db->prepare("DELETE FROM audit_log WHERE request_id = ?");
     $stmt->execute([$requestId]);
     
@@ -59,40 +56,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete'])) {
     
     header('Location: dashboard.php?deleted=1');
     exit;
-}
-
-// Handle approval/disapproval
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    $action = $_POST['action'];
-    
-    if (in_array($action, ['approve', 'disapprove'])) {
-        // Update request status to pending_notification
-        $stmt = $db->prepare("
-            UPDATE event_requests 
-            SET status = 'pending_notification', 
-                reviewed_by = ?, 
-                reviewed_at = NOW()
-            WHERE id = ?
-        ");
-        $stmt->execute([$_SESSION['user_id'], $requestId]);
-        
-        // Add to pending actions queue
-        $stmt = $db->prepare("
-            INSERT INTO pending_actions (request_id, action_type, admin_id) 
-            VALUES (?, ?, ?)
-        ");
-        $stmt->execute([$requestId, $action, $_SESSION['user_id']]);
-        
-        // Log audit
-        $stmt = $db->prepare("
-            INSERT INTO audit_log (request_id, admin_id, action) 
-            VALUES (?, ?, ?)
-        ");
-        $stmt->execute([$requestId, $_SESSION['user_id'], $action === 'approve' ? 'approved' : 'disapproved']);
-        
-        header('Location: pending_actions.php?success=1');
-        exit;
-    }
 }
 
 // Prepare event data for JavaScript
@@ -105,8 +68,17 @@ $eventData = [
 $inlineScripts = "
     const eventData = " . json_encode($eventData) . ";
     
-    function confirmAction(action) {
-        window.confirmAction(action, eventData);
+    function confirmApprove() {
+        window.location.href = 'send_notification.php?id={$requestId}&action=approve';
+    }
+    
+    function confirmDecline() {
+        window.location.href = 'send_notification.php?id={$requestId}&action=decline';
+    }
+    
+    function confirmDelete() {
+        const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        modal.show();
     }
 ";
 
@@ -213,18 +185,20 @@ include 'includes/navbar.php';
             
             <?php if ($request['status'] === 'pending'): ?>
             <div class="d-flex gap-2">
-                <button type="button" class="btn btn-danger" onclick="confirmAction('disapprove')">
-                    <i class="fas fa-times"></i> Disapprove
+                <button type="button" class="btn btn-danger btn-lg" onclick="confirmDecline()">
+                    <i class="fas fa-times"></i> Decline & Notify
                 </button>
-                <button type="button" class="btn btn-success" onclick="confirmAction('approve')">
-                    <i class="fas fa-check"></i> Approve
+                <button type="button" class="btn btn-success btn-lg" onclick="confirmApprove()">
+                    <i class="fas fa-check"></i> Approve & Notify
                 </button>
             </div>
-            <?php elseif ($request['status'] === 'pending_notification'): ?>
-            <div class="d-flex gap-2">
-                <a href="pending_actions.php" class="btn btn-warning btn-lg">
-                    <i class="fas fa-bell"></i> Go to Pending Actions
-                </a>
+            <?php elseif ($request['status'] === 'approved'): ?>
+            <div class="alert alert-success mb-0">
+                <i class="fas fa-check-circle"></i> This request has been approved
+            </div>
+            <?php elseif ($request['status'] === 'declined'): ?>
+            <div class="alert alert-danger mb-0">
+                <i class="fas fa-times-circle"></i> This request has been declined
             </div>
             <?php endif; ?>
         </div>
@@ -249,7 +223,7 @@ include 'includes/navbar.php';
                     <?= htmlspecialchars($request['organization']) ?><br>
                     <?= formatDate($request['event_date']) ?>
                 </div>
-                <p>All associated data including attachments, audit logs, and pending actions will be permanently removed.</p>
+                <p>All associated data including attachments, audit logs will be permanently removed.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -257,26 +231,6 @@ include 'includes/navbar.php';
                     <button type="submit" name="delete" class="btn btn-danger">
                         <i class="fas fa-trash"></i> Delete Permanently
                     </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Confirmation Modal -->
-<div class="modal fade" id="confirmModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="confirmTitle">Confirm Action</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" id="confirmMessage"></div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form method="POST" style="display: inline;">
-                    <input type="hidden" name="action" id="actionType">
-                    <button type="submit" class="btn btn-primary" id="confirmBtn">Confirm</button>
                 </form>
             </div>
         </div>
@@ -376,6 +330,14 @@ include 'includes/navbar.php';
         .info-label {
             width: 100%;
             margin-bottom: 5px;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .action-buttons .d-flex {
+            width: 100%;
         }
     }
 </style>

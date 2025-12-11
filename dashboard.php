@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Dashboard Page - Updated with External Assets
+ * Dashboard Page - Fixed Calendar Display
  * File: dashboard.php
  */
 
@@ -10,8 +10,8 @@ requireAdmin();
 
 // Set page configuration
 $pageTitle = 'Dashboard - EVSU Admin Panel';
-$customCSS = ['dashboard']; // Loads assets/css/dashboard.css
-$customJS = ['dashboard']; // Loads assets/js/dashboard.js
+$customCSS = ['dashboard'];
+$customJS = ['dashboard'];
 
 $db = getDB();
 
@@ -20,7 +20,7 @@ $currentMonth = isset($_GET['month']) ? (int)$_GET['month'] : date('n');
 $currentYear = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
 $selectedDate = isset($_GET['date']) ? $_GET['date'] : null;
 
-// Get requests for the current month
+// Get ALL requests for the current month (for calendar display)
 $stmt = $db->prepare("
     SELECT 
         id, event_name, organization, event_date, event_time, 
@@ -32,29 +32,42 @@ $stmt = $db->prepare("
 $stmt->execute([$currentMonth, $currentYear]);
 $monthRequests = $stmt->fetchAll();
 
-// Filter for sidebar display
-$displayRequests = $monthRequests;
+// Get ONLY PENDING requests for sidebar display
+$stmt = $db->prepare("
+    SELECT 
+        id, event_name, organization, event_date, event_time, 
+        volunteers_needed, status, requester_email, requester_name
+    FROM event_requests 
+    WHERE MONTH(event_date) = ? AND YEAR(event_date) = ?
+    AND status = 'pending'
+    ORDER BY event_date, event_time
+");
+$stmt->execute([$currentMonth, $currentYear]);
+$pendingRequests = $stmt->fetchAll();
+
+// Filter for sidebar display based on selected date
+$displayRequests = $pendingRequests;
 if ($selectedDate) {
-    $displayRequests = array_filter($monthRequests, function($req) use ($selectedDate) {
+    $displayRequests = array_filter($pendingRequests, function($req) use ($selectedDate) {
         return $req['event_date'] === $selectedDate;
     });
 }
 
-// Get pending actions count
-$stmt = $db->query("SELECT COUNT(*) FROM event_requests WHERE status = 'pending_notification'");
-$pendingCount = $stmt->fetchColumn();
-
 // Get stats
 $stmt = $db->query("SELECT COUNT(*) FROM event_requests WHERE status = 'pending'");
-$pendingRequests = $stmt->fetchColumn();
+$totalPending = $stmt->fetchColumn();
 
 $stmt = $db->query("SELECT COUNT(*) FROM event_requests WHERE status = 'approved'");
-$approvedRequests = $stmt->fetchColumn();
+$totalApproved = $stmt->fetchColumn();
 
-// Group requests by date for calendar with counts
+$stmt = $db->query("SELECT COUNT(*) FROM event_requests WHERE status = 'declined'");
+$totalDeclined = $stmt->fetchColumn();
+
+// Group ALL requests by date for calendar with counts
 $requestsByDate = [];
 $countsByDate = [];
 $approvedByDate = [];
+$pendingByDate = [];
 
 foreach ($monthRequests as $request) {
     $date = $request['event_date'];
@@ -62,12 +75,16 @@ foreach ($monthRequests as $request) {
         $requestsByDate[$date] = [];
         $countsByDate[$date] = 0;
         $approvedByDate[$date] = 0;
+        $pendingByDate[$date] = 0;
     }
     $requestsByDate[$date][] = $request;
     $countsByDate[$date]++;
     
     if ($request['status'] === 'approved') {
         $approvedByDate[$date]++;
+    }
+    if ($request['status'] === 'pending') {
+        $pendingByDate[$date]++;
     }
 }
 
@@ -120,19 +137,19 @@ include 'includes/navbar.php';
                 <div class="col-md-4">
                     <div class="stats-card">
                         <h6 class="text-muted">Pending Requests</h6>
-                        <h2 class="text-warning"><?= $pendingRequests ?></h2>
+                        <h2 class="text-warning"><?= $totalPending ?></h2>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="stats-card">
                         <h6 class="text-muted">Approved Events</h6>
-                        <h2 class="text-success"><?= $approvedRequests ?></h2>
+                        <h2 class="text-success"><?= $totalApproved ?></h2>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="stats-card">
-                        <h6 class="text-muted">Pending Actions</h6>
-                        <h2 class="text-info"><?= $pendingCount ?></h2>
+                        <h6 class="text-muted">Declined Requests</h6>
+                        <h2 class="text-danger"><?= $totalDeclined ?></h2>
                     </div>
                 </div>
             </div>
@@ -151,7 +168,6 @@ include 'includes/navbar.php';
                 </div>
             </div>
 
-            <!-- Month Quick Links -->
             <?php if (!empty($monthsWithRequests)): ?>
             <div class="mb-3">
                 <small class="text-muted d-block mb-2">
@@ -195,22 +211,33 @@ include 'includes/navbar.php';
                     $isSelected = ($date === $selectedDate) ? 'selected' : '';
                     $count = $countsByDate[$date] ?? 0;
                     $approvedCount = $approvedByDate[$date] ?? 0;
+                    $pendingCount = $pendingByDate[$date] ?? 0;
                     $hasEvents = $count > 0 ? 'has-events' : '';
+                    
+                    // Only add has-approved class if there ARE approved events
                     $hasApproved = $approvedCount > 0 ? 'has-approved' : '';
                     
                     echo "<div class='calendar-day $isToday $isSelected $hasEvents $hasApproved' data-date='$date' onclick='selectDate(\"$date\")'>";
                     echo "<div class='day-number'>$day</div>";
                     
+                    // Show approved indicator only if there are approved events
                     if ($approvedCount > 0) {
-                        echo "<div class='approved-indicator' title='Has approved events'>";
+                        echo "<div class='approved-indicator' title='$approvedCount approved event" . ($approvedCount > 1 ? 's' : '') . "'>";
                         echo "<i class='fas fa-check'></i>";
+                        echo "</div>";
+                    }
+                    
+                    // Show pending indicator if there are pending requests
+                    if ($pendingCount > 0) {
+                        echo "<div class='pending-indicator' title='$pendingCount pending request" . ($pendingCount > 1 ? 's' : '') . "'>";
+                        echo "<i class='fas fa-clock'></i> $pendingCount";
                         echo "</div>";
                     }
                     
                     if ($count > 0) {
                         echo "<div class='event-count-badge'>";
                         echo "<i class='fas fa-calendar'></i> ";
-                        echo "$count event" . ($count > 1 ? 's' : '');
+                        echo "$count total";
                         echo "</div>";
                     }
                     
@@ -220,73 +247,211 @@ include 'includes/navbar.php';
             </div>
         </div>
 
-        <!-- Sidebar - Request List -->
-        <div class="col-md-4 p-4 bg-white">
-            <?php if ($selectedDate): ?>
-                <div class="d-flex justify-content-between align-items-center mb-3">
+        <!-- Sidebar - PENDING Requests Only -->
+        <div class="col-md-4 p-4 bg-white sidebar-section">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <?php if ($selectedDate): ?>
                     <h5 class="mb-0">
                         <i class="fas fa-calendar-day"></i> <?= formatDate($selectedDate) ?>
                     </h5>
                     <button onclick="clearDateFilter()" class="btn btn-sm btn-outline-secondary">
                         <i class="fas fa-times"></i> Clear
                     </button>
-                </div>
-            <?php else: ?>
-                <h5 class="mb-3">Requests for <?= $monthName ?></h5>
-            <?php endif; ?>
-            
-            <!-- Status Filter Buttons -->
-            <div class="btn-group w-100 mb-3" role="group">
-                <input type="radio" class="btn-check" name="statusFilter" id="filterAll" autocomplete="off" checked>
-                <label class="btn btn-outline-secondary btn-sm" for="filterAll" onclick="filterByStatus('all')">
-                    All
-                </label>
-                
-                <input type="radio" class="btn-check" name="statusFilter" id="filterPending" autocomplete="off">
-                <label class="btn btn-outline-warning btn-sm" for="filterPending" onclick="filterByStatus('pending')">
-                    Pending
-                </label>
-                
-                <input type="radio" class="btn-check" name="statusFilter" id="filterApproved" autocomplete="off">
-                <label class="btn btn-outline-success btn-sm" for="filterApproved" onclick="filterByStatus('approved')">
-                    Approved
-                </label>
-                
-                <input type="radio" class="btn-check" name="statusFilter" id="filterDisapproved" autocomplete="off">
-                <label class="btn btn-outline-danger btn-sm" for="filterDisapproved" onclick="filterByStatus('disapproved')">
-                    Disapproved
-                </label>
+                <?php else: ?>
+                    <h5 class="mb-0">
+                        <i class="fas fa-clock"></i> Pending Requests
+                    </h5>
+                <?php endif; ?>
+            </div>
+
+            <div class="alert alert-info alert-sm">
+                <small>
+                    <i class="fas fa-info-circle"></i> 
+                    Showing pending requests only. 
+                    <a href="history.php" class="alert-link">View history</a> for approved/declined.
+                </small>
             </div>
             
             <?php if (empty($displayRequests)): ?>
-                <p class="text-muted" id="emptyMessage">
-                    <?php if ($selectedDate): ?>
-                        No requests on this date.
-                    <?php else: ?>
-                        No requests for this month.
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted" id="emptyMessage">
+                        <?php if ($selectedDate): ?>
+                            No pending requests on this date.
+                        <?php else: ?>
+                            No pending requests for this month.
+                        <?php endif; ?>
+                    </p>
+                    <?php if (!empty($pendingRequests) && $selectedDate): ?>
+                        <button onclick="clearDateFilter()" class="btn btn-sm btn-primary">
+                            Show All Pending
+                        </button>
                     <?php endif; ?>
-                </p>
+                </div>
             <?php else: ?>
+                <div class="pending-count-badge mb-3">
+                    <i class="fas fa-exclamation-circle"></i> 
+                    <?= count($displayRequests) ?> pending request<?= count($displayRequests) > 1 ? 's' : '' ?>
+                </div>
+                
                 <div id="requestsList">
                 <?php foreach ($displayRequests as $req): ?>
-                    <div class="request-list-item <?= $req['status'] ?>" 
-                         data-status="<?= $req['status'] ?>"
+                    <div class="request-list-item pending" 
+                         data-status="pending"
                          onclick="viewRequest(<?= $req['id'] ?>)">
                         <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
                         <small class="text-muted">
-                            <?= htmlspecialchars($req['organization']) ?><br>
-                            <?= formatDate($req['event_date']) ?> at <?= formatTime($req['event_time']) ?>
+                            <i class="fas fa-building"></i> <?= htmlspecialchars($req['organization']) ?><br>
+                            <i class="fas fa-calendar"></i> <?= formatDate($req['event_date']) ?> 
+                            <i class="fas fa-clock"></i> <?= formatTime($req['event_time']) ?><br>
+                            <i class="fas fa-users"></i> <?= $req['volunteers_needed'] ?> volunteers
                         </small>
                         <div class="mt-2">
-                            <?= getStatusBadge($req['status']) ?>
+                            <span class="badge badge-warning">
+                                <i class="fas fa-clock"></i> Pending Review
+                            </span>
                         </div>
                     </div>
                 <?php endforeach; ?>
                 </div>
             <?php endif; ?>
+
+            <?php if ($totalPending > 0): ?>
+            <div class="mt-4 pt-3 border-top">
+                <div class="d-grid">
+                    <a href="history.php" class="btn btn-outline-primary">
+                        <i class="fas fa-history"></i> View Approved & Declined History
+                    </a>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 </div>
+
+<style>
+    .sidebar-section {
+        border-left: 1px solid #dee2e6;
+        min-height: calc(100vh - 56px);
+        position: sticky;
+        top: 56px;
+        max-height: calc(100vh - 56px);
+        overflow-y: auto;
+    }
+
+    .calendar-legend {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 6px;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.875rem;
+    }
+
+    .legend-badge {
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        display: inline-block;
+        border: 2px solid;
+    }
+
+    .legend-approved {
+        background: #e8f5e9;
+        border-color: #2e7d32;
+    }
+
+    .legend-pending {
+        background: #fff3cd;
+        border-color: #ffc107;
+    }
+
+    .legend-today {
+        background: #fff5f5;
+        border-color: var(--evsu-maroon);
+    }
+
+    .pending-count-badge {
+        background: #fff3cd;
+        border: 2px solid #ffc107;
+        color: #856404;
+        padding: 10px 15px;
+        border-radius: 8px;
+        font-weight: 600;
+        text-align: center;
+    }
+
+    .alert-sm {
+        padding: 8px 12px;
+        font-size: 0.875rem;
+    }
+
+    .pending-indicator {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        background: #ffc107;
+        color: #000;
+        padding: 3px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    .request-list-item {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 1px solid #e9ecef;
+        border-left: 4px solid #ffc107;
+    }
+
+    .request-list-item:hover {
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.3);
+        transform: translateX(5px);
+        border-left-color: var(--evsu-gold);
+    }
+
+    .request-list-item h6 {
+        color: var(--evsu-maroon);
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .request-list-item small {
+        font-size: 0.85rem;
+        display: block;
+        line-height: 1.6;
+    }
+
+    @media (max-width: 768px) {
+        .sidebar-section {
+            position: relative;
+            top: 0;
+            min-height: auto;
+            max-height: none;
+            border-left: none;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .calendar-legend {
+            font-size: 0.75rem;
+        }
+    }
+</style>
 
 <?php
 // Include footer

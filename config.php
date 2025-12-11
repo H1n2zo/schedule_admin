@@ -85,8 +85,7 @@ function getStatusBadge($status) {
     $badges = [
         'pending' => '<span class="badge badge-warning">Pending</span>',
         'approved' => '<span class="badge badge-success">Approved</span>',
-        'disapproved' => '<span class="badge badge-danger">Disapproved</span>',
-        'pending_notification' => '<span class="badge badge-info">Pending Notification</span>'
+        'declined' => '<span class="badge badge-danger">Declined</span>'
     ];
     return $badges[$status] ?? $status;
 }

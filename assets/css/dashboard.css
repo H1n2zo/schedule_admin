@@ -70,9 +70,9 @@
     background: linear-gradient(135deg, #ffffff 0%, #fffef9 100%);
 }
 
+/* Only show green border if there ARE approved events */
 .calendar-day.has-approved {
-    border-color: #2e7d32;
-    border-width: 2px;
+    border-left: 4px solid #2e7d32;
 }
 
 .day-number {
@@ -116,18 +116,6 @@
     justify-content: center;
     font-size: 14px;
     box-shadow: 0 2px 6px rgba(46, 125, 50, 0.4);
-    animation: checkPulse 2s infinite;
-}
-
-@keyframes checkPulse {
-    0%, 100% {
-        transform: scale(1);
-        opacity: 1;
-    }
-    50% {
-        transform: scale(1.1);
-        opacity: 0.8;
-    }
 }
 
 /* ============================================
@@ -188,7 +176,7 @@
     border-left-color: #28a745;
 }
 
-.request-list-item.disapproved {
+.request-list-item.declined {
     border-left-color: #dc3545;
 }
 

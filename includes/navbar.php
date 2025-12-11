@@ -10,19 +10,6 @@ $isLoggedIn = isset($_SESSION['user_id']);
 $isAdmin = isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
 $fullName = isset($_SESSION['full_name']) ? $_SESSION['full_name'] : 'Guest';
 
-// Get pending actions count if admin
-$pendingCount = 0;
-if ($isAdmin) {
-    try {
-        $db = getDB();
-        $stmt = $db->query("SELECT COUNT(*) FROM event_requests WHERE status = 'pending_notification'");
-        $pendingCount = $stmt->fetchColumn();
-    } catch (PDOException $e) {
-        // Handle error silently
-        $pendingCount = 0;
-    }
-}
-
 // Determine current page
 $currentPage = basename($_SERVER['PHP_SELF']);
 ?>
@@ -32,7 +19,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
     <div class="container-fluid">
         <!-- Brand -->
         <a href="<?= $isLoggedIn ? 'dashboard.php' : 'index.php' ?>" class="navbar-brand">
-            🎓 EVSU Event Management System
+              EVSU Event Management System
         </a>
         
         <!-- Mobile Toggle -->
@@ -44,23 +31,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <!-- Navigation Items -->
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto align-items-center">
-                <?php if ($isLoggedIn && $isAdmin): ?>
-                    <!-- Dashboard Link -->
+                <?php if ($isLoggedIn && $isAdmin): ?>                    
+                    <!-- History Link -->
                     <li class="nav-item">
-                        <a href="dashboard.php" class="btn btn-light btn-sm me-2 <?= $currentPage === 'dashboard.php' ? 'active' : '' ?>">
-                            <i class="fas fa-home"></i> Dashboard
-                        </a>
-                    </li>
-                    
-                    <!-- Pending Actions -->
-                    <li class="nav-item">
-                        <a href="pending_actions.php" class="btn btn-warning btn-sm me-2 position-relative">
-                            <i class="fas fa-bell"></i> Pending Actions
-                            <?php if ($pendingCount > 0): ?>
-                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                                    <?= $pendingCount ?>
-                                </span>
-                            <?php endif; ?>
+                        <a href="history.php" class="btn btn-info btn-sm me-2">
+                            <i class="fas fa-history"></i> History
                         </a>
                     </li>
                     
@@ -99,12 +74,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     </li>
                     
                 <?php else: ?>
-                    <!-- Guest/Public User -->
-                    <li class="nav-item">
-                        <a href="index.php" class="btn btn-light btn-sm me-2 <?= $currentPage === 'index.php' ? 'active' : '' ?>">
-                            <i class="fas fa-home"></i> Home
-                        </a>
-                    </li>
                     <li class="nav-item">
                         <a href="submit_request.php" class="btn btn-warning btn-sm">
                             <i class="fas fa-calendar-plus"></i> Submit Request
