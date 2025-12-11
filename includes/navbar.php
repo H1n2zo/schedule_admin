@@ -31,7 +31,14 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <!-- Navigation Items -->
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto align-items-center">
-                <?php if ($isLoggedIn && $isAdmin): ?>                    
+                <?php if ($isLoggedIn && $isAdmin): ?>   
+                    <!-- User Management -->
+                    <li class="nav-item">
+                        <a href="dashboard.php" class="btn btn-light btn-sm me-2">
+                            <i class="fas fa-users-cog"></i> Dashboard
+                        </a>
+                    </li>      
+
                     <!-- History Link -->
                     <li class="nav-item">
                         <a href="history.php" class="btn btn-info btn-sm me-2">
