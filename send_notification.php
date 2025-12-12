@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Send Notification - Direct Approve/Decline
+ * Send Notification - Direct Approve/Decline - FIXED
  * File: send_notification.php
  */
 
@@ -72,50 +72,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $body = $_POST['body']; // Don't sanitize too much, preserve formatting
     $includeAttachments = isset($_POST['include_attachments']) ? 1 : 0;
     
-    // Update request status
-    $newStatus = $action === 'approve' ? 'approved' : 'declined';
-    $stmt = $db->prepare("
-        UPDATE event_requests 
-        SET status = ?, 
-            reviewed_by = ?, 
-            reviewed_at = NOW()
-        WHERE id = ?
-    ");
-    $stmt->execute([$newStatus, $_SESSION['user_id'], $requestId]);
-    
-    // Log notification sent
-    $stmt = $db->prepare("
-        INSERT INTO audit_log (request_id, admin_id, action, notes, email_sent) 
-        VALUES (?, ?, ?, ?, 1)
-    ");
-    $stmt->execute([
-        $requestId, 
-        $_SESSION['user_id'], 
-        $action === 'approve' ? 'approved' : 'declined', 
-        $subject
-    ]);
-    
-    // Save to notification history
-    $stmt = $db->prepare("
-        INSERT INTO notification_history 
-        (request_id, action_type, admin_id, recipient_email, subject, body, attachments_sent) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ");
-    $stmt->execute([
-        $requestId,
-        $action,
-        $_SESSION['user_id'],
-        $request['requester_email'],
-        $subject,
-        $body,
-        $includeAttachments
-    ]);
-    
-    // In production, send actual email here using PHPMailer
-    // If $includeAttachments is true, attach the files
-    
-    header('Location: dashboard.php?notification_sent=1&action=' . $action);
-    exit;
+    try {
+        // Start transaction
+        $db->beginTransaction();
+        
+        // Update request status
+        $newStatus = $action === 'approve' ? 'approved' : 'declined';
+        $stmt = $db->prepare("
+            UPDATE event_requests 
+            SET status = ?, 
+                reviewed_by = ?, 
+                reviewed_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([$newStatus, $_SESSION['user_id'], $requestId]);
+        
+        // FIXED: Save to notification_history table
+        $stmt = $db->prepare("
+            INSERT INTO notification_history 
+            (request_id, action_type, admin_id, recipient_email, subject, body, attachments_sent, sent_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+        ");
+        $stmt->execute([
+            $requestId,
+            $action,
+            $_SESSION['user_id'],
+            $request['requester_email'],
+            $subject,
+            $body,
+            $includeAttachments
+        ]);
+        
+        // Log in audit_log
+        $stmt = $db->prepare("
+            INSERT INTO audit_log (request_id, admin_id, action, notes, email_sent) 
+            VALUES (?, ?, ?, ?, 1)
+        ");
+        $actionType = $action === 'approve' ? 'approved' : 'disapproved';
+        $stmt->execute([
+            $requestId, 
+            $_SESSION['user_id'], 
+            $actionType, 
+            $subject
+        ]);
+        
+        // Commit transaction
+        $db->commit();
+        
+        // In production, send actual email here using PHPMailer
+        // If $includeAttachments is true, attach the files
+        
+        header('Location: dashboard.php?notification_sent=1&action=' . $action);
+        exit;
+        
+    } catch (PDOException $e) {
+        // Rollback on error
+        $db->rollBack();
+        $error = "Failed to process request: " . $e->getMessage();
+    }
 }
 
 // Include header
@@ -129,6 +143,13 @@ include 'includes/navbar.php';
     <a href="view_request.php?id=<?= $requestId ?>" class="btn btn-outline-secondary mt-3 mb-3">
         <i class="fas fa-arrow-left"></i> Back to Request
     </a>
+    
+    <?php if (isset($error)): ?>
+        <div class="alert alert-danger alert-dismissible fade show">
+            <i class="fas fa-exclamation-circle"></i> <?= htmlspecialchars($error) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
     
     <div class="email-composer">
         <div class="composer-header">

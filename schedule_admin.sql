@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 07, 2025 at 11:51 AM
+-- Generation Time: Dec 12, 2025 at 01:44 AM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -47,7 +47,7 @@ CREATE TABLE `audit_log` (
   `id` int(11) NOT NULL,
   `request_id` int(11) NOT NULL,
   `admin_id` int(11) NOT NULL,
-  `action` enum('submitted','approved','disapproved','notification_sent') NOT NULL,
+  `action` enum('submitted','approved','declined','notification_sent') NOT NULL,
   `notes` text DEFAULT NULL,
   `email_sent` tinyint(1) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -58,10 +58,7 @@ CREATE TABLE `audit_log` (
 --
 
 INSERT INTO `audit_log` (`id`, `request_id`, `admin_id`, `action`, `notes`, `email_sent`, `created_at`) VALUES
-(7, 45, 3, 'approved', NULL, 0, '2025-12-07 10:49:02'),
-(8, 45, 3, 'notification_sent', '✓ Event Request APPROVED - Women Empowerment Forum', 1, '2025-12-07 10:49:06'),
-(9, 44, 3, 'approved', NULL, 0, '2025-12-07 10:49:15'),
-(10, 29, 3, 'disapproved', NULL, 0, '2025-12-07 10:49:55');
+(1, 74, 3, 'approved', '✓ Event Request APPROVED - Tech Innovation Summit 2026', 1, '2025-12-12 00:42:23');
 
 -- --------------------------------------------------------
 
@@ -79,7 +76,7 @@ CREATE TABLE `event_requests` (
   `event_time` time NOT NULL,
   `volunteers_needed` int(11) DEFAULT 0,
   `description` text NOT NULL,
-  `status` enum('pending','approved','disapproved','pending_notification') DEFAULT 'pending',
+  `status` enum('pending','approved','declined','pending_notification') DEFAULT 'pending',
   `reviewed_by` int(11) DEFAULT NULL,
   `reviewed_at` timestamp NULL DEFAULT NULL,
   `notes` text DEFAULT NULL,
@@ -92,51 +89,43 @@ CREATE TABLE `event_requests` (
 --
 
 INSERT INTO `event_requests` (`id`, `event_name`, `organization`, `requester_email`, `requester_name`, `event_date`, `event_time`, `volunteers_needed`, `description`, `status`, `reviewed_by`, `reviewed_at`, `notes`, `created_at`, `updated_at`) VALUES
-(29, 'Christmas Charity Drive', 'EVSU Student Council', 'maria.santos@evsu.edu.ph', 'Maria Santos', '2024-12-15', '09:00:00', 15, 'Annual Christmas charity event to collect donations and distribute gifts to underprivileged children in the community. We will need volunteers to help with sorting donations, wrapping gifts, and distribution.', 'pending_notification', 3, '2025-12-07 10:49:55', NULL, '2024-11-20 02:30:00', '2025-12-07 10:49:55'),
-(30, 'STEM Fair 2024', 'College of Engineering', 'john.reyes@evsu.edu.ph', 'John Reyes', '2024-12-18', '08:00:00', 20, 'Annual STEM Fair showcasing student projects and innovations. Volunteers needed for registration desk, guiding visitors, and assisting exhibitors with their displays.', 'pending', NULL, NULL, NULL, '2024-11-15 06:20:00', '2025-12-07 10:48:48'),
-(31, 'Year-End Sports Festival', 'PE Department', 'carlos.martinez@evsu.edu.ph', 'Carlos Martinez', '2024-12-20', '07:00:00', 25, 'Inter-departmental sports competition featuring basketball, volleyball, and track and field events. Volunteers will assist with event coordination, timekeeping, and crowd management.', 'pending', NULL, NULL, NULL, '2024-11-28 01:15:00', '2025-12-07 10:48:48'),
-(32, 'Career Orientation Seminar', 'Guidance Office', 'ana.delacruz@evsu.edu.ph', 'Ana Dela Cruz', '2024-12-22', '13:00:00', 10, 'Career guidance seminar for graduating students. Volunteers needed to help with registration, distribute materials, and assist with breakout sessions.', 'pending', NULL, NULL, NULL, '2024-11-22 03:45:00', '2025-12-07 10:48:48'),
-(33, 'Environmental Cleanup Drive', 'Green Earth Organization', 'roberto.garcia@evsu.edu.ph', 'Roberto Garcia', '2024-12-28', '06:00:00', 30, 'Beach and mangrove cleanup activity to promote environmental awareness. Volunteers will participate in collecting trash, sorting recyclables, and documenting the activity.', 'pending', NULL, NULL, NULL, '2024-11-18 08:30:00', '2025-12-07 10:48:48'),
-(34, 'New Year Community Outreach', 'EVSU Community Extension', 'lisa.mendoza@evsu.edu.ph', 'Lisa Mendoza', '2025-01-05', '08:00:00', 18, 'Community outreach program to bring educational activities and basic health services to nearby barangays. Volunteers will assist with activity facilitation and logistics.', 'pending', NULL, NULL, NULL, '2024-12-01 02:00:00', '2025-12-07 10:48:48'),
-(35, 'Research Symposium', 'Graduate School', 'ferdinand.cruz@evsu.edu.ph', 'Dr. Ferdinand Cruz', '2025-01-18', '09:00:00', 12, 'Annual research symposium featuring thesis presentations and academic discussions. Volunteers needed for technical support, registration, and documentation.', 'pending', NULL, NULL, NULL, '2024-12-02 05:20:00', '2025-12-07 10:48:48'),
-(36, 'Blood Donation Drive', 'Red Cross Youth Council', 'patricia.ramos@evsu.edu.ph', 'Patricia Ramos', '2025-01-22', '08:00:00', 15, 'Quarterly blood donation drive in partnership with the Philippine Red Cross. Volunteers will help with donor registration, refreshment distribution, and crowd control.', 'pending', NULL, NULL, NULL, '2024-12-03 01:30:00', '2025-12-07 10:48:48'),
-(37, 'Cultural Night Festival', 'Arts and Culture Committee', 'miguel.torres@evsu.edu.ph', 'Miguel Torres', '2025-01-25', '18:00:00', 22, 'Celebration of Filipino culture through dance, music, and art performances. Volunteers needed for stage management, ushering, and backstage coordination.', 'pending', NULL, NULL, NULL, '2024-12-04 07:45:00', '2025-12-07 10:48:48'),
-(38, 'Leadership Training Workshop', 'Student Leadership Council', 'sarah.villanueva@evsu.edu.ph', 'Sarah Villanueva', '2025-01-15', '13:00:00', 8, 'Leadership development workshop for student organization officers. Volunteers will assist with room setup, materials distribution, and activity facilitation.', 'pending', NULL, NULL, NULL, '2024-12-05 03:00:00', '2025-12-07 10:48:48'),
-(39, 'Health and Wellness Fair', 'Medical Services Office', 'maria.gonzales@evsu.edu.ph', 'Dr. Maria Gonzales', '2025-01-30', '09:00:00', 18, 'Campus health fair offering free medical checkups, health screenings, and wellness consultations. Volunteers will assist with registration and crowd flow.', 'pending', NULL, NULL, NULL, '2024-12-04 02:00:00', '2025-12-07 10:48:48'),
-(40, 'Valentine Blood Drive', 'Nursing Society', 'jenny.aquino@evsu.edu.ph', 'Nurse Jenny Aquino', '2025-02-14', '09:00:00', 12, 'Valentine-themed blood donation drive. Share the love, donate blood. Volunteers will assist with pre-screening, registration, and donor care.', 'pending', NULL, NULL, NULL, '2024-12-06 02:30:00', '2025-12-07 10:48:48'),
-(41, 'EVSU Job Fair 2025', 'Career Development Office', 'mark.santiago@evsu.edu.ph', 'Mark Santiago', '2025-02-20', '08:00:00', 25, 'Annual job fair featuring 50+ companies looking to hire EVSU graduates. Volunteers needed for company liaison, registration, and crowd management.', 'pending', NULL, NULL, NULL, '2024-12-07 06:15:00', '2025-12-07 10:48:48'),
-(42, 'Science Quiz Bowl', 'Science Club', 'linda.reyes@evsu.edu.ph', 'Prof. Linda Reyes', '2025-02-10', '13:00:00', 10, 'Inter-college science quiz competition. Volunteers will help with score tabulation, timekeeping, and technical support.', 'pending', NULL, NULL, NULL, '2024-11-25 01:00:00', '2025-12-07 10:48:48'),
-(43, 'Earthquake Drill', 'Safety and Security Office', 'ramon.bautista@evsu.edu.ph', 'Security Chief Ramon Bautista', '2025-02-28', '10:00:00', 20, 'Campus-wide earthquake preparedness drill. Volunteers will serve as marshals, evacuation guides, and first aid responders.', 'pending', NULL, NULL, NULL, '2024-12-01 00:30:00', '2025-12-07 10:48:48'),
-(44, 'Book Fair 2025', 'Library Services', 'susan.reyes@evsu.edu.ph', 'Librarian Susan Reyes', '2025-02-05', '08:00:00', 12, 'Annual book fair featuring discounted books, author talks, and reading activities. Volunteers needed for setup, cashier assistance, and customer service.', 'pending_notification', 3, '2025-12-07 10:49:15', NULL, '2024-12-05 01:30:00', '2025-12-07 10:49:15'),
-(45, 'Women Empowerment Forum', 'Gender and Development Office', 'grace.santos@evsu.edu.ph', 'Dr. Grace Santos', '2025-03-08', '13:00:00', 15, 'International Women\'s Day celebration with panel discussions and workshops on women\'s rights and empowerment. Volunteers needed for registration and logistics.', 'approved', 3, '2025-12-07 10:49:02', NULL, '2024-12-05 03:20:00', '2025-12-07 10:49:06'),
-(46, 'Tree Planting Activity', 'Environmental Science Club', 'eduardo.flores@evsu.edu.ph', 'Eduardo Flores', '2025-03-15', '06:00:00', 35, 'Tree planting initiative at Mt. Pangasugan. Volunteers will participate in planting 500 native tree species and trail maintenance.', 'pending', NULL, NULL, NULL, '2024-12-06 08:00:00', '2025-12-07 10:48:48'),
-(47, 'University Week Opening', 'University Events Committee', 'melissa.tan@evsu.edu.ph', 'Director Melissa Tan', '2025-03-24', '08:00:00', 40, 'Grand opening ceremony for University Week featuring parade, cultural presentations, and sports competitions. Large volunteer contingent needed for various roles.', 'pending', NULL, NULL, NULL, '2024-11-30 02:00:00', '2025-12-07 10:48:48'),
-(48, 'Mathematics Olympiad', 'Math Department', 'antonio.cruz@evsu.edu.ph', 'Prof. Antonio Cruz', '2025-03-12', '08:00:00', 8, 'Regional mathematics competition for high school students. Volunteers will assist with registration, room assignment, and examination monitoring.', 'pending', NULL, NULL, NULL, '2024-12-02 05:45:00', '2025-12-07 10:48:48'),
-(49, 'Student Art Exhibition', 'Fine Arts Department', 'angela.villanueva@evsu.edu.ph', 'Prof. Angela Villanueva', '2025-03-20', '14:00:00', 10, 'Showcase of student artworks including paintings, sculptures, and digital art. Volunteers needed for gallery setup, visitor assistance, and artwork handling.', 'pending', NULL, NULL, NULL, '2024-12-03 02:15:00', '2025-12-07 10:48:48');
+(74, 'Tech Innovation Summit 2026', 'Computer Science Society', 'mark.santos@evsu.edu.ph', 'Mark Santos', '2026-01-10', '09:00:00', 12, 'A full-day summit featuring talks from tech innovators and workshop sessions.', 'approved', 3, '2025-12-12 00:42:23', NULL, '2025-12-19 19:00:00', '2025-12-12 00:42:23'),
+(75, 'Mental Health Awareness Day', 'Psychology Club', 'sarah.reyes@evsu.edu.ph', 'Sarah Reyes', '2026-01-12', '13:00:00', 8, 'Mental health awareness campaign with counseling sessions and mindfulness workshops.', 'pending', NULL, NULL, NULL, '2025-12-21 20:30:00', '2025-12-21 20:30:00'),
+(76, 'Christmas Movie Marathon', 'Film Society', 'juan.deleon@evsu.edu.ph', 'Juan Dela Leon', '2026-01-14', '18:00:00', 6, 'Holiday movie night with popcorn, hot chocolate, and volunteer support for setup.', 'pending', NULL, NULL, NULL, '2025-12-24 18:15:00', '2025-12-24 18:15:00'),
+(77, 'Robotics Competition', 'Engineering Club', 'anna.torres@evsu.edu.ph', 'Anna Torres', '2026-01-16', '08:00:00', 15, 'Inter-school robotics competition with timekeeping and arena maintenance volunteers.', 'pending', NULL, NULL, NULL, '2025-12-17 21:45:00', '2025-12-17 21:45:00'),
+(78, 'New Year Resolution Workshop', 'Student Development Office', 'maria.garcia@evsu.edu.ph', 'Maria Garcia', '2026-02-08', '14:00:00', 10, 'Goal-setting workshop with vision boarding and accountability partner matching.', 'pending', NULL, NULL, NULL, '2026-01-04 23:00:00', '2026-01-04 23:00:00'),
+(79, 'Disaster Preparedness Training', 'Red Cross Youth', 'carlo.mendoza@evsu.edu.ph', 'Carlo Mendoza', '2026-02-12', '09:00:00', 20, 'Comprehensive disaster preparedness and first-aid training.', 'pending', NULL, NULL, NULL, '2026-01-01 19:30:00', '2026-01-01 19:30:00'),
+(80, 'Photography Walk & Workshop', 'Photography Club', 'lisa.francisco@evsu.edu.ph', 'Lisa Francisco', '2026-02-20', '06:00:00', 12, 'Sunrise photography walk and editing workshop.', 'pending', NULL, NULL, NULL, '2026-01-06 00:15:00', '2026-01-06 00:15:00'),
+(81, 'Alumni Networking Night', 'Alumni Relations Office', 'robert.cruz@evsu.edu.ph', 'Robert Cruz', '2026-02-27', '18:00:00', 15, 'Networking night connecting students with alumni mentors.', 'pending', NULL, NULL, NULL, '2026-01-02 20:00:00', '2026-01-02 20:00:00'),
+(82, 'Valentine Blood and Bone Marrow Drive', 'Medical Technology Society', 'jenny.santos@evsu.edu.ph', 'Jenny Santos', '2026-03-13', '08:00:00', 18, 'Blood donation and bone marrow registry drive.', 'pending', NULL, NULL, NULL, '2026-02-03 22:30:00', '2026-02-03 22:30:00'),
+(83, 'Entrepreneurship Fair', 'Business Administration Dept', 'michael.reyes@evsu.edu.ph', 'Dr. Michael Reyes', '2026-03-18', '09:00:00', 20, 'Student entrepreneurship showcase with business pitches and workshops.', 'pending', NULL, NULL, NULL, '2026-02-06 18:45:00', '2026-02-06 18:45:00'),
+(84, 'Language Festival', 'Foreign Language Department', 'sofia.martinez@evsu.edu.ph', 'Prof. Sofia Martinez', '2026-03-22', '13:00:00', 14, 'Celebration of languages with performances and cultural displays.', 'pending', NULL, NULL, NULL, '2026-02-04 21:20:00', '2026-02-04 21:20:00'),
+(85, 'Coastal Cleanup and Marine Life Documentation', 'Marine Biology Society', 'eduardo.ramos@evsu.edu.ph', 'Eduardo Ramos', '2026-03-25', '06:00:00', 30, 'Beach cleanup and marine biodiversity documentation activity.', 'pending', NULL, NULL, NULL, '2026-02-05 23:00:00', '2026-02-05 23:00:00');
 
 -- --------------------------------------------------------
 
 --
--- Table structure for table `pending_actions`
+-- Table structure for table `notification_history`
 --
 
-CREATE TABLE `pending_actions` (
+CREATE TABLE `notification_history` (
   `id` int(11) NOT NULL,
   `request_id` int(11) NOT NULL,
-  `action_type` enum('approve','disapprove') NOT NULL,
+  `action_type` enum('approve','disapprove','decline') NOT NULL,
   `admin_id` int(11) NOT NULL,
-  `email_subject` varchar(500) DEFAULT NULL,
-  `email_body` text DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `recipient_email` varchar(255) NOT NULL,
+  `subject` varchar(500) NOT NULL,
+  `body` text NOT NULL,
+  `attachments_sent` tinyint(1) DEFAULT 0,
+  `sent_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Dumping data for table `pending_actions`
+-- Dumping data for table `notification_history`
 --
 
-INSERT INTO `pending_actions` (`id`, `request_id`, `action_type`, `admin_id`, `email_subject`, `email_body`, `created_at`) VALUES
-(6, 44, 'approve', 3, NULL, NULL, '2025-12-07 10:49:15'),
-(7, 29, 'disapprove', 3, NULL, NULL, '2025-12-07 10:49:55');
+INSERT INTO `notification_history` (`id`, `request_id`, `action_type`, `admin_id`, `recipient_email`, `subject`, `body`, `attachments_sent`, `sent_at`) VALUES
+(1, 74, 'approve', 3, 'mark.santos@evsu.edu.ph', '✓ Event Request APPROVED - Tech Innovation Summit 2026', 'Dear Mark Santos,\r\n\r\nGreat news! Your event request has been APPROVED.\r\n\r\nEvent Details:\r\n- Event Name: Tech Innovation Summit 2026\r\n- Organization: Computer Science Society\r\n- Date: January 10, 2026\r\n- Time: 9:00 AM\r\n- Volunteers Needed: 12\r\n\r\nYou can now proceed with your event preparations. Our team will contact you soon regarding volunteer assignments.\r\n\r\nBest regards,\r\nEVSU Admin Council', 0, '2025-12-12 00:42:23');
 
 -- --------------------------------------------------------
 
@@ -159,7 +148,8 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `email`, `password`, `full_name`, `role`, `created_at`, `updated_at`) VALUES
-(3, 'hansmichael.gabor@evsu.edu.ph', '$2y$10$BtuZlGyadnpgpFdx1rxq7udSqebDLwEvWldvTT/TTmfvIkKD57Hg2', 'Hans Michael Gabor', 'admin', '2025-12-07 07:06:13', '2025-12-07 07:07:01');
+(3, 'hansmichael.gabor@evsu.edu.ph', '$2y$10$BtuZlGyadnpgpFdx1rxq7udSqebDLwEvWldvTT/TTmfvIkKD57Hg2', 'Hans Michael Gabor', 'admin', '2025-12-07 07:06:13', '2025-12-07 07:07:01'),
+(4, 'admin@evsu.edu.ph', '$2y$10$52MqTHfaYzQz1aBzZJqoBeeyQ60SWkvKg.jJjI9fiekeiQfPLRkga', 'AdminTG', 'coordinator', '2025-12-09 13:47:17', '2025-12-09 13:47:17');
 
 --
 -- Indexes for dumped tables
@@ -188,9 +178,9 @@ ALTER TABLE `event_requests`
   ADD KEY `reviewed_by` (`reviewed_by`);
 
 --
--- Indexes for table `pending_actions`
+-- Indexes for table `notification_history`
 --
-ALTER TABLE `pending_actions`
+ALTER TABLE `notification_history`
   ADD PRIMARY KEY (`id`),
   ADD KEY `request_id` (`request_id`),
   ADD KEY `admin_id` (`admin_id`);
@@ -216,25 +206,25 @@ ALTER TABLE `attachments`
 -- AUTO_INCREMENT for table `audit_log`
 --
 ALTER TABLE `audit_log`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `event_requests`
 --
 ALTER TABLE `event_requests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=50;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=86;
 
 --
--- AUTO_INCREMENT for table `pending_actions`
+-- AUTO_INCREMENT for table `notification_history`
 --
-ALTER TABLE `pending_actions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+ALTER TABLE `notification_history`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- Constraints for dumped tables
@@ -260,11 +250,11 @@ ALTER TABLE `event_requests`
   ADD CONSTRAINT `event_requests_ibfk_1` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL;
 
 --
--- Constraints for table `pending_actions`
+-- Constraints for table `notification_history`
 --
-ALTER TABLE `pending_actions`
-  ADD CONSTRAINT `pending_actions_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `event_requests` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `pending_actions_ibfk_2` FOREIGN KEY (`admin_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+ALTER TABLE `notification_history`
+  ADD CONSTRAINT `notification_history_ibfk_1` FOREIGN KEY (`request_id`) REFERENCES `event_requests` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `notification_history_ibfk_2` FOREIGN KEY (`admin_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
