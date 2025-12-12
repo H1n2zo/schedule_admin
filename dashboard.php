@@ -150,22 +150,37 @@ include 'includes/navbar.php';
             <!-- Stats Cards -->
             <div class="row mb-4">
                 <div class="col-md-4">
-                    <div class="stats-card">
-                        <h6 class="text-muted">Pending Requests</h6>
-                        <h2 class="text-warning"><?= $totalPending ?></h2>
-                    </div>
+                    <a href="dashboard.php?status=pending" class="stats-card-link">
+                        <div class="stats-card">
+                            <h6 class="text-muted">Pending Requests</h6>
+                            <h2 class="text-warning"><?= $totalPending ?></h2>
+                            <small class="text-success">
+                                <i></i> Click to view under review
+                            </small>
+                        </div>
+                    </a>
                 </div>
                 <div class="col-md-4">
-                    <div class="stats-card">
-                        <h6 class="text-muted">Approved Events</h6>
-                        <h2 class="text-success"><?= $totalApproved ?></h2>
-                    </div>
+                    <a href="history.php?status=approved" class="stats-card-link">
+                        <div class="stats-card stats-card-clickable">
+                            <h6 class="text-muted">Approved Events</h6>
+                            <h2 class="text-success"><?= $totalApproved ?></h2>
+                            <small class="text-success">
+                                <i></i> Click to view all approved
+                            </small>
+                        </div>
+                    </a>
                 </div>
                 <div class="col-md-4">
-                    <div class="stats-card">
-                        <h6 class="text-muted">Declined Requests</h6>
-                        <h2 class="text-danger"><?= $totalDeclined ?></h2>
-                    </div>
+                    <a href="history.php?status=declined" class="stats-card-link">
+                        <div class="stats-card stats-card-clickable">
+                            <h6 class="text-muted">Declined Requests</h6>
+                            <h2 class="text-danger"><?= $totalDeclined ?></h2>
+                            <small class="text-danger">
+                                <i></i> Click to view all declined
+                            </small>
+                        </div>
+                    </a>
                 </div>
             </div>
 
