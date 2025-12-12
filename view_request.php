@@ -90,8 +90,8 @@ include 'includes/navbar.php';
 ?>
 
 <div class="container">
-    <a href="dashboard.php" class="btn btn-outline-secondary btn-back mt-3 mb-3">
-        <i class="fas fa-arrow-left"></i> Back to Dashboard
+    <a href="history.php" class="btn btn-outline-secondary btn-back mt-3 mb-3">
+        Back to History
     </a>
     
     <div class="gmail-container">
