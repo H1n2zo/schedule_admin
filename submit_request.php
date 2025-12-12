@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Submit Request Page - With Date Blocking
+ * Submit Request Page - Updated with Start/End Time and Required Attachments
  * File: submit_request.php
  */
 
@@ -21,17 +21,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $requesterName = sanitizeInput($_POST['requester_name']);
     $requesterEmail = sanitizeInput($_POST['requester_email']);
     $eventDate = $_POST['event_date'];
-    $eventTime = $_POST['event_time'];
+    $eventStartTime = $_POST['event_start_time'];
+    $eventEndTime = $_POST['event_end_time'];
     $volunteersNeeded = (int)$_POST['volunteers_needed'];
-    $description = sanitizeInput($_POST['description']);
+    $description = isset($_POST['description']) ? sanitizeInput($_POST['description']) : '';
     
-    // Validate
+    // Validate required fields
     if (!filter_var($requesterEmail, FILTER_VALIDATE_EMAIL)) {
         $error = 'Please provide a valid email address';
     } elseif (strtotime($eventDate) < strtotime('today')) {
         $error = 'Event date cannot be in the past';
     } elseif ($volunteersNeeded < 0 || $volunteersNeeded > 100) {
         $error = 'Volunteers needed must be between 0 and 100';
+    } elseif (strtotime($eventEndTime) <= strtotime($eventStartTime)) {
+        $error = 'End time must be after start time';
+    } elseif (!isset($_FILES['attachments']) || empty($_FILES['attachments']['name'][0])) {
+        $error = 'At least one attachment is required';
     } else {
         try {
             $db = getDB();
@@ -53,17 +58,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $db->prepare("
                     INSERT INTO event_requests 
                     (event_name, organization, requester_name, requester_email, 
-                     event_date, event_time, volunteers_needed, description, status, created_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+                     event_date, event_time, event_end_time, volunteers_needed, description, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
                 ");
                 $stmt->execute([
                     $eventName, $organization, $requesterName, $requesterEmail,
-                    $eventDate, $eventTime, $volunteersNeeded, $description
+                    $eventDate, $eventStartTime, $eventEndTime, $volunteersNeeded, $description
                 ]);
                 
                 $requestId = $db->lastInsertId();
                 
-                // Handle file uploads
+                // Handle file uploads (REQUIRED)
                 if (isset($_FILES['attachments']) && !empty($_FILES['attachments']['name'][0])) {
                     $uploadDir = UPLOAD_DIR;
                     
@@ -151,8 +156,8 @@ include 'includes/navbar.php';
                         <li><strong>Date Availability:</strong> Only one event can be approved per date</li>
                         <li><strong>Blocked Dates:</strong> Dates with approved events are disabled and cannot be selected</li>
                         <li><strong>Advance Notice:</strong> Submit requests at least 1 week in advance</li>
-                        <li><strong>Detailed Description:</strong> Provide clear event details and volunteer needs</li>
-                        <li><strong>Attachments:</strong> Include supporting documents if available</li>
+                        <li><strong>Time Details:</strong> Provide both start and end times for your event</li>
+                        <li><strong>Attachments:</strong> At least one supporting document is required</li>
                     </ul>
                 </div>
                 
@@ -205,12 +210,22 @@ include 'includes/navbar.php';
                         
                         <div class="col-md-4 mb-3">
                             <label class="form-label">
-                                Event Time <span class="required">*</span>
+                                Start Time <span class="required">*</span>
                             </label>
-                            <input type="time" name="event_time" class="form-control" required>
+                            <input type="time" name="event_start_time" class="form-control" required id="startTime">
                         </div>
                         
                         <div class="col-md-4 mb-3">
+                            <label class="form-label">
+                                End Time <span class="required">*</span>
+                            </label>
+                            <input type="time" name="event_end_time" class="form-control" required id="endTime">
+                            <small class="form-text text-muted" id="timeValidation"></small>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
                             <label class="form-label">
                                 Volunteers Needed <span class="required">*</span>
                             </label>
@@ -221,17 +236,16 @@ include 'includes/navbar.php';
                     
                     <div class="mb-3">
                         <label class="form-label">
-                            Event Description <span class="required">*</span>
+                            Event Description <span style="color: #6c757d; font-weight: normal;">(Optional)</span>
                         </label>
                         <textarea name="description" class="form-control" rows="6" 
                                   placeholder="Provide detailed information about your event, its purpose, activities, and what volunteers will be doing..." 
-                                  data-max-length="2000"
-                                  required></textarea>
+                                  data-max-length="2000"></textarea>
                     </div>
                     
                     <div class="mb-4">
                         <label class="form-label">
-                            Attachments <span style="color: #6c757d; font-weight: normal;">(Optional)</span>
+                            Attachments <span class="required">*</span>
                         </label>
                         <div class="file-upload-area" onclick="document.getElementById('fileInput').click()">
                             <i class="fas fa-cloud-upload-alt"></i>
@@ -239,12 +253,12 @@ include 'includes/navbar.php';
                                 Click to Upload Files
                             </h5>
                             <p style="color: #6c757d; margin: 0;">
-                                PDF, DOC, DOCX, JPG, PNG (Max 5MB per file)
+                                PDF, DOC, DOCX, JPG, PNG (Max 5MB per file) - <strong>REQUIRED</strong>
                             </p>
                         </div>
                         <input type="file" id="fileInput" name="attachments[]" 
                                class="d-none" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                               onchange="displayFiles(this)">
+                               onchange="displayFiles(this)" required>
                         <div id="fileList" class="mt-2"></div>
                     </div>
                     
@@ -263,7 +277,7 @@ include 'includes/navbar.php';
 </div>
 
 <style>
-#dateAvailability {
+#dateAvailability, #timeValidation {
     display: block;
     margin-top: 5px;
     font-weight: 600;
@@ -272,13 +286,13 @@ include 'includes/navbar.php';
     transition: all 0.3s ease;
 }
 
-#dateAvailability.available {
+#dateAvailability.available, #timeValidation.valid {
     color: #2e7d32;
     background: #e8f5e9;
     border-left: 4px solid #2e7d32;
 }
 
-#dateAvailability.occupied {
+#dateAvailability.occupied, #timeValidation.invalid {
     color: #c62828;
     font-weight: 700;
     background: #ffebee;
@@ -297,87 +311,58 @@ include 'includes/navbar.php';
     10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
     20%, 40%, 60%, 80% { transform: translateX(5px); }
 }
-
-#dateAvailability.occupied {
-    color: #c62828;
-}
-
-#dateAvailability.checking {
-    color: #0288d1;
-}
-
-input[type="date"]:disabled {
-    background-color: #f5f5f5;
-    cursor: not-allowed;
-}
-
-.date-legend {
-    margin-top: 10px;
-    padding: 10px;
-    background: #f8f9fa;
-    border-radius: 6px;
-    font-size: 0.875rem;
-}
-
-.date-legend-item {
-    display: inline-flex;
-    align-items: center;
-    margin-right: 15px;
-    margin-bottom: 5px;
-}
-
-.date-legend-item i {
-    margin-right: 5px;
-}
 </style>
 
 <script>
 let occupiedDates = {};
 let datesLoaded = false;
 
-// Load occupied dates on page load
+// Time validation
 document.addEventListener('DOMContentLoaded', function() {
+    const startTime = document.getElementById('startTime');
+    const endTime = document.getElementById('endTime');
+    const timeValidation = document.getElementById('timeValidation');
+    
+    function validateTimes() {
+        if (startTime.value && endTime.value) {
+            if (endTime.value <= startTime.value) {
+                timeValidation.className = 'form-text invalid';
+                timeValidation.innerHTML = '<i class="fas fa-times-circle"></i> End time must be after start time';
+                endTime.setCustomValidity('End time must be after start time');
+            } else {
+                timeValidation.className = 'form-text valid';
+                timeValidation.innerHTML = '<i class="fas fa-check-circle"></i> Time range is valid';
+                endTime.setCustomValidity('');
+            }
+        }
+    }
+    
+    startTime.addEventListener('change', validateTimes);
+    endTime.addEventListener('change', validateTimes);
+    
+    // Date availability check
     const dateInput = document.getElementById('eventDateInput');
     const availabilityMsg = document.getElementById('dateAvailability');
     
-    // Show loading state
     if (availabilityMsg) {
         availabilityMsg.className = 'form-text text-muted checking';
         availabilityMsg.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading available dates...';
     }
     
-    // Fetch occupied dates
     fetch('check_date_availability.php')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 occupiedDates = data.occupied_dates;
                 datesLoaded = true;
-                console.log('Occupied dates loaded:', Object.keys(occupiedDates).length);
-                console.log('Occupied dates:', occupiedDates);
                 
-                // Clear loading message
                 if (availabilityMsg) {
                     availabilityMsg.className = 'form-text text-muted';
                     availabilityMsg.innerHTML = '<i class="fas fa-info-circle"></i> Select a date to check availability';
                 }
-            } else {
-                console.error('Failed to load occupied dates:', data);
-                if (availabilityMsg) {
-                    availabilityMsg.className = 'form-text text-danger';
-                    availabilityMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error loading dates. Please refresh the page.';
-                }
-            }
-        })
-        .catch(error => {
-            console.error('Error loading occupied dates:', error);
-            if (availabilityMsg) {
-                availabilityMsg.className = 'form-text text-danger';
-                availabilityMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error loading dates. Please refresh the page.';
             }
         });
     
-    // Validate date selection
     if (dateInput && availabilityMsg) {
         dateInput.addEventListener('change', function() {
             const selectedDate = this.value;
@@ -387,138 +372,28 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            // Wait for dates to load before checking
             if (!datesLoaded) {
                 availabilityMsg.className = 'form-text text-muted checking';
                 availabilityMsg.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Checking availability...';
-                
-                // Wait a bit and try again
-                setTimeout(() => {
-                    if (datesLoaded) {
-                        checkDateAvailability(selectedDate, this, availabilityMsg);
-                    } else {
-                        availabilityMsg.className = 'form-text text-warning';
-                        availabilityMsg.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Still loading dates, please wait...';
-                    }
-                }, 500);
                 return;
             }
             
-            checkDateAvailability(selectedDate, this, availabilityMsg);
-        });
-        
-        // Also check when user manually types a date
-        dateInput.addEventListener('blur', function() {
-            if (this.value && datesLoaded && occupiedDates[this.value]) {
-                this.dispatchEvent(new Event('change'));
+            if (occupiedDates[selectedDate]) {
+                const event = occupiedDates[selectedDate];
+                availabilityMsg.className = 'form-text occupied';
+                availabilityMsg.innerHTML = `
+                    <i class="fas fa-times-circle"></i> 
+                    <strong>NOT AVAILABLE</strong> - This date is already taken by "${event.event_name}" (${event.organization})
+                `;
+                this.value = '';
+            } else {
+                availabilityMsg.className = 'form-text available';
+                availabilityMsg.innerHTML = '<i class="fas fa-check-circle"></i> <strong>AVAILABLE!</strong> This date is free for your event.';
             }
         });
     }
 });
 
-// Function to check if a date is available
-function checkDateAvailability(selectedDate, inputElement, messageElement) {
-    console.log('Checking date:', selectedDate);
-    console.log('Is occupied?', occupiedDates[selectedDate]);
-    
-    // Check if date is occupied
-    if (occupiedDates[selectedDate]) {
-        const event = occupiedDates[selectedDate];
-        messageElement.className = 'form-text occupied';
-        messageElement.innerHTML = `
-            <i class="fas fa-times-circle"></i> 
-            <strong>NOT AVAILABLE</strong> - This date is already taken by "${event.event_name}" (${event.organization})
-        `;
-        
-        // Show modal
-        showDateConflictModal(event, selectedDate);
-        
-        // Clear the input
-        inputElement.value = '';
-    } else {
-        messageElement.className = 'form-text available';
-        messageElement.innerHTML = '<i class="fas fa-check-circle"></i> <strong>AVAILABLE!</strong> This date is free for your event.';
-    }
-}
-
-// Show date conflict modal
-function showDateConflictModal(event, selectedDate) {
-    // Create modal HTML
-    const modalHTML = `
-        <div class="modal fade" id="dateConflictModal" tabindex="-1">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header" style="background: linear-gradient(135deg, #c62828 0%, #8e0000 100%); color: white;">
-                        <h5 class="modal-title">
-                            <i class="fas fa-calendar-times"></i> Date Not Available
-                        </h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="alert alert-danger">
-                            <h5 class="mb-3"><i class="fas fa-exclamation-triangle"></i> Date Already Taken</h5>
-                            <p class="mb-2">The date you selected <strong>${formatModalDate(selectedDate)}</strong> already has an approved event:</p>
-                        </div>
-                        
-                        <div class="conflict-event-box">
-                            <h4 class="text-danger mb-2">
-                                <i class="fas fa-calendar-check"></i> ${event.event_name}
-                            </h4>
-                            <p class="mb-0">
-                                <i class="fas fa-building"></i> <strong>Organization:</strong> ${event.organization}
-                            </p>
-                        </div>
-                        
-                        <div class="alert alert-warning mt-3">
-                            <h6><i class="fas fa-info-circle"></i> What you can do:</h6>
-                            <ul class="mb-0">
-                                <li>Choose a different date for your event</li>
-                                <li>Check the calendar for available dates</li>
-                                <li>Only one event can be approved per date</li>
-                            </ul>
-                        </div>
-                        
-                        <p class="text-muted text-center mt-3 mb-0">
-                            <small>Please select another date to continue with your request.</small>
-                        </p>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
-                            <i class="fas fa-calendar-alt"></i> Choose Different Date
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Remove existing modal if any
-    const existingModal = document.getElementById('dateConflictModal');
-    if (existingModal) {
-        existingModal.remove();
-    }
-    
-    // Add modal to page
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    // Show modal
-    const modal = new bootstrap.Modal(document.getElementById('dateConflictModal'));
-    modal.show();
-    
-    // Remove modal from DOM after it's hidden
-    document.getElementById('dateConflictModal').addEventListener('hidden.bs.modal', function() {
-        this.remove();
-    });
-}
-
-// Format date for modal display
-function formatModalDate(dateString) {
-    const date = new Date(dateString + 'T00:00:00');
-    const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' };
-    return date.toLocaleDateString('en-US', options);
-}
-
-// Display uploaded files
 function displayFiles(input) {
     const fileList = document.getElementById('fileList');
     fileList.innerHTML = '';
@@ -544,6 +419,5 @@ function displayFiles(input) {
 </script>
 
 <?php
-// Include footer
 include 'includes/footer.php';
 ?>

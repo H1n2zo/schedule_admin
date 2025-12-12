@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Manage Users Page - Updated with External Assets
+ * Manage Users Page - FIXED
  * File: manage_users.php
  */
 
@@ -11,63 +11,87 @@ requireAdmin();
 // Set page configuration
 $pageTitle = 'Manage Users - EVSU Admin Panel';
 $customCSS = ['dashboard'];
-$customJS = ['modals'];
+$customJS = [];
 
 $db = getDB();
 $message = '';
 $messageType = '';
 
-// Handle role changes
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['action'])) {
-        $userId = (int)$_POST['user_id'];
-        
-        // Prevent admin from removing their own admin role
-        if ($userId === $_SESSION['user_id'] && $_POST['action'] === 'demote') {
-            $message = 'You cannot remove your own admin privileges.';
-            $messageType = 'danger';
-        } else {
-            try {
-                if ($_POST['action'] === 'promote') {
+// Handle user actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && isset($_POST['user_id'])) {
+    $userId = (int)$_POST['user_id'];
+    $action = $_POST['action'];
+    
+    // Prevent admin from modifying their own account
+    if ($userId === $_SESSION['user_id']) {
+        $message = 'You cannot modify your own account.';
+        $messageType = 'danger';
+    } else {
+        try {
+            // Get user info before action
+            $stmt = $db->prepare("SELECT email, full_name, role FROM users WHERE id = ?");
+            $stmt->execute([$userId]);
+            $user = $stmt->fetch();
+            
+            if (!$user) {
+                $message = 'User not found.';
+                $messageType = 'danger';
+            } else {
+                if ($action === 'promote') {
                     // Promote to admin
                     $stmt = $db->prepare("UPDATE users SET role = 'admin' WHERE id = ?");
                     $stmt->execute([$userId]);
                     
-                    $stmt = $db->prepare("SELECT email, full_name FROM users WHERE id = ?");
-                    $stmt->execute([$userId]);
-                    $user = $stmt->fetch();
-                    
-                    $message = htmlspecialchars($user['full_name']) . ' has been promoted to admin.';
+                    $message = htmlspecialchars($user['full_name']) . ' has been promoted to administrator.';
                     $messageType = 'success';
                     
-                } elseif ($_POST['action'] === 'demote') {
-                    // Demote to regular user
-                    $stmt = $db->prepare("UPDATE users SET role = 'user' WHERE id = ?");
-                    $stmt->execute([$userId]);
+                } elseif ($action === 'demote') {
+                    // Check if this is the last admin
+                    $stmt = $db->query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+                    $adminCount = $stmt->fetchColumn();
                     
-                    $stmt = $db->prepare("SELECT email, full_name FROM users WHERE id = ?");
-                    $stmt->execute([$userId]);
-                    $user = $stmt->fetch();
+                    if ($adminCount <= 1) {
+                        $message = 'Cannot demote the last administrator. At least one admin must remain.';
+                        $messageType = 'danger';
+                    } else {
+                        // Demote to regular user
+                        $stmt = $db->prepare("UPDATE users SET role = 'user' WHERE id = ?");
+                        $stmt->execute([$userId]);
+                        
+                        $message = htmlspecialchars($user['full_name']) . ' has been demoted to regular user.';
+                        $messageType = 'warning';
+                    }
                     
-                    $message = htmlspecialchars($user['full_name']) . ' has been demoted to regular user.';
-                    $messageType = 'warning';
-                    
-                } elseif ($_POST['action'] === 'delete') {
-                    // Delete user
-                    $stmt = $db->prepare("SELECT email, full_name FROM users WHERE id = ?");
-                    $stmt->execute([$userId]);
-                    $user = $stmt->fetch();
-                    
-                    $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
-                    $stmt->execute([$userId]);
-                    
-                    $message = 'User ' . htmlspecialchars($user['full_name']) . ' has been deleted.';
-                    $messageType = 'info';
+                } elseif ($action === 'delete') {
+                    // Check if this is the last admin
+                    if ($user['role'] === 'admin') {
+                        $stmt = $db->query("SELECT COUNT(*) FROM users WHERE role = 'admin'");
+                        $adminCount = $stmt->fetchColumn();
+                        
+                        if ($adminCount <= 1) {
+                            $message = 'Cannot delete the last administrator. At least one admin must remain.';
+                            $messageType = 'danger';
+                        } else {
+                            // Delete user
+                            $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
+                            $stmt->execute([$userId]);
+                            
+                            $message = 'User ' . htmlspecialchars($user['full_name']) . ' has been deleted.';
+                            $messageType = 'info';
+                        }
+                    } else {
+                        // Delete user
+                        $stmt = $db->prepare("DELETE FROM users WHERE id = ?");
+                        $stmt->execute([$userId]);
+                        
+                        $message = 'User ' . htmlspecialchars($user['full_name']) . ' has been deleted.';
+                        $messageType = 'info';
+                    }
                 }
-            } catch (PDOException $e) {
-                $message = 'Error updating user: ' . $e->getMessage();
-                $messageType = 'danger';
             }
+        } catch (PDOException $e) {
+            $message = 'Error: ' . $e->getMessage();
+            $messageType = 'danger';
         }
     }
 }
@@ -84,13 +108,6 @@ $users = $stmt->fetchAll();
 
 // Count admins
 $adminCount = count(array_filter($users, fn($u) => $u['role'] === 'admin'));
-
-// Prepare inline scripts
-$inlineScripts = "
-    function confirmUserAction(userId, action, userName) {
-        window.confirmUserAction(userId, action, userName);
-    }
-";
 
 // Include header
 include 'includes/header.php';
@@ -184,20 +201,20 @@ include 'includes/navbar.php';
                                     <?php if ($user['role'] === 'admin'): ?>
                                         <!-- Demote from admin -->
                                         <button class="btn btn-sm btn-warning" 
-                                                onclick="confirmUserAction(<?= $user['id'] ?>, 'demote', '<?= htmlspecialchars($user['full_name']) ?>')">
+                                                onclick="showConfirmModal(<?= $user['id'] ?>, 'demote', '<?= htmlspecialchars($user['full_name']) ?>')">
                                             <i class="fas fa-arrow-down"></i> Demote
                                         </button>
                                     <?php else: ?>
                                         <!-- Promote to admin -->
                                         <button class="btn btn-sm btn-success" 
-                                                onclick="confirmUserAction(<?= $user['id'] ?>, 'promote', '<?= htmlspecialchars($user['full_name']) ?>')">
+                                                onclick="showConfirmModal(<?= $user['id'] ?>, 'promote', '<?= htmlspecialchars($user['full_name']) ?>')">
                                             <i class="fas fa-arrow-up"></i> Promote
                                         </button>
                                     <?php endif; ?>
                                     
                                     <!-- Delete user -->
                                     <button class="btn btn-sm btn-danger" 
-                                            onclick="confirmUserAction(<?= $user['id'] ?>, 'delete', '<?= htmlspecialchars($user['full_name']) ?>')">
+                                            onclick="showConfirmModal(<?= $user['id'] ?>, 'delete', '<?= htmlspecialchars($user['full_name']) ?>')">
                                         <i class="fas fa-trash"></i> Delete
                                     </button>
                                 <?php else: ?>
@@ -227,23 +244,23 @@ include 'includes/navbar.php';
     </div>
 </div>
 
-<!-- User Action Modal -->
-<div class="modal fade" id="userActionModal" tabindex="-1">
+<!-- Confirmation Modal -->
+<div class="modal fade" id="confirmModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirm Action</h5>
+            <div class="modal-header" id="modalHeader">
+                <h5 class="modal-title" id="modalTitle">Confirm Action</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body" id="modalBody">
                 <!-- Dynamic content -->
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <form method="POST" style="display: inline;">
-                    <input type="hidden" name="user_id" id="userActionId">
-                    <input type="hidden" name="action" id="userActionType">
-                    <button type="submit" class="btn btn-primary">Confirm</button>
+                <form method="POST" id="confirmForm" style="display: inline;">
+                    <input type="hidden" name="user_id" id="confirmUserId">
+                    <input type="hidden" name="action" id="confirmAction">
+                    <button type="submit" class="btn btn-primary" id="confirmButton">Confirm</button>
                 </form>
             </div>
         </div>
@@ -281,6 +298,91 @@ include 'includes/navbar.php';
         }
     }
 </style>
+
+<script>
+function showConfirmModal(userId, action, userName) {
+    const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+    const modalHeader = document.getElementById('modalHeader');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody = document.getElementById('modalBody');
+    const confirmButton = document.getElementById('confirmButton');
+    const confirmUserId = document.getElementById('confirmUserId');
+    const confirmAction = document.getElementById('confirmAction');
+    
+    // Set form values
+    confirmUserId.value = userId;
+    confirmAction.value = action;
+    
+    // Set modal content based on action
+    let titleText, bodyHTML, btnClass, btnText, headerClass;
+    
+    switch(action) {
+        case 'promote':
+            titleText = 'Promote to Administrator';
+            bodyHTML = `
+                <div class="alert alert-info">
+                    <i class="fas fa-arrow-up"></i> 
+                    Are you sure you want to promote <strong>${userName}</strong> to administrator?
+                </div>
+                <p>They will have full access to all admin features including:</p>
+                <ul>
+                    <li>Approving/declining event requests</li>
+                    <li>Managing users</li>
+                    <li>Sending notifications</li>
+                    <li>Viewing all audit logs</li>
+                </ul>
+            `;
+            btnClass = 'btn-success';
+            btnText = '<i class="fas fa-arrow-up"></i> Confirm Promotion';
+            headerClass = 'bg-success text-white';
+            break;
+            
+        case 'demote':
+            titleText = 'Demote from Administrator';
+            bodyHTML = `
+                <div class="alert alert-warning">
+                    <i class="fas fa-arrow-down"></i> 
+                    Are you sure you want to demote <strong>${userName}</strong> to regular user?
+                </div>
+                <p>They will lose all administrative privileges including:</p>
+                <ul>
+                    <li>Access to the admin dashboard</li>
+                    <li>Ability to approve/decline requests</li>
+                    <li>User management capabilities</li>
+                </ul>
+            `;
+            btnClass = 'btn-warning';
+            btnText = '<i class="fas fa-arrow-down"></i> Confirm Demotion';
+            headerClass = 'bg-warning text-dark';
+            break;
+            
+        case 'delete':
+            titleText = 'Delete User';
+            bodyHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-trash"></i> 
+                    Are you sure you want to permanently delete <strong>${userName}</strong>?
+                </div>
+                <p class="text-danger"><strong>Warning:</strong> This action cannot be undone!</p>
+                <p>All data associated with this user will be permanently removed from the system.</p>
+            `;
+            btnClass = 'btn-danger';
+            btnText = '<i class="fas fa-trash"></i> Confirm Deletion';
+            headerClass = 'bg-danger text-white';
+            break;
+    }
+    
+    // Update modal
+    modalTitle.textContent = titleText;
+    modalBody.innerHTML = bodyHTML;
+    confirmButton.className = 'btn ' + btnClass;
+    confirmButton.innerHTML = btnText;
+    modalHeader.className = 'modal-header ' + headerClass;
+    
+    // Show modal
+    modal.show();
+}
+</script>
 
 <?php
 // Include footer

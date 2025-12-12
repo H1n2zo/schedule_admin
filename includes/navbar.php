@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Common Navigation Bar
+ * Common Navigation Bar - Updated
  * File: includes/navbar.php
  */
 
@@ -32,13 +32,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto align-items-center">
                 <?php if ($isLoggedIn && $isAdmin): ?>   
-                    <!-- User Management -->
-                    <li class="nav-item">
-                        <a href="dashboard.php" class="btn btn-light btn-sm me-2">
-                            <i class="fas fa-users-cog"></i> Dashboard
-                        </a>
-                    </li>      
-
                     <!-- History Link -->
                     <li class="nav-item">
                         <a href="history.php" class="btn btn-info btn-sm me-2">
@@ -77,13 +70,6 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                     <li class="nav-item">
                         <a href="logout.php" class="btn btn-light btn-sm">
                             <i class="fas fa-sign-out-alt"></i> Logout
-                        </a>
-                    </li>
-                    
-                <?php else: ?>
-                    <li class="nav-item">
-                        <a href="submit_request.php" class="btn btn-warning btn-sm">
-                            <i class="fas fa-calendar-plus"></i> Submit Request
                         </a>
                     </li>
                 <?php endif; ?>

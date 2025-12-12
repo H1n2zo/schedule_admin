@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Notification History Page
+ * Notification History Page with Pagination
  * File: history.php
  */
 
@@ -15,10 +15,15 @@ $customJS = ['dashboard'];
 
 $db = getDB();
 
+// Pagination settings
+$itemsPerPage = 20;
+$currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$offset = ($currentPage - 1) * $itemsPerPage;
+
 // Get filter parameters
 $filterStatus = isset($_GET['status']) ? $_GET['status'] : 'all';
-$filterMonth = isset($_GET['month']) ? (int)$_GET['month'] : date('n');
-$filterYear = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
+$filterMonth = isset($_GET['month']) ? (int)$_GET['month'] : 0;
+$filterYear = isset($_GET['year']) ? (int)$_GET['year'] : 0;
 
 // Build query based on filters
 $whereClause = "WHERE 1=1";
@@ -35,22 +40,36 @@ if ($filterMonth && $filterYear) {
     $params[] = $filterYear;
 }
 
-// Fetch notification history
+// Get total count for pagination
+$countQuery = "
+    SELECT COUNT(*) 
+    FROM event_requests er
+    $whereClause
+    AND er.status IN ('approved', 'declined')
+";
+$stmt = $db->prepare($countQuery);
+$stmt->execute($params);
+$totalItems = $stmt->fetchColumn();
+$totalPages = ceil($totalItems / $itemsPerPage);
+
+// Get all approved and declined requests with pagination
 $stmt = $db->prepare("
-SELECT 
-    er.*,
-    u.full_name AS admin_name,
-    nh.sent_at,
-    nh.subject AS notification_subject,
-    nh.attachments_sent,
-    nh.action_type
-FROM event_requests er
-INNER JOIN notification_history nh ON nh.request_id = er.id -- Changed from LEFT JOIN
-LEFT JOIN users u ON nh.admin_id = u.id
-$whereClause
-AND er.status IN ('approved', 'declined')
-ORDER BY nh.sent_at DESC
+    SELECT 
+        er.*,
+        u.full_name as admin_name,
+        nh.sent_at,
+        nh.subject as notification_subject,
+        nh.attachments_sent
+    FROM event_requests er
+    LEFT JOIN users u ON er.reviewed_by = u.id
+    LEFT JOIN notification_history nh ON er.id = nh.request_id
+    $whereClause
+    AND er.status IN ('approved', 'declined')
+    ORDER BY er.event_date DESC, er.created_at DESC
+    LIMIT ? OFFSET ?
 ");
+$params[] = $itemsPerPage;
+$params[] = $offset;
 $stmt->execute($params);
 $history = $stmt->fetchAll();
 
@@ -62,6 +81,17 @@ $stmt = $db->query("SELECT COUNT(*) FROM event_requests WHERE status = 'declined
 $totalDeclined = $stmt->fetchColumn();
 
 $totalProcessed = $totalApproved + $totalDeclined;
+
+// Get available months/years for filter
+$stmt = $db->query("
+    SELECT DISTINCT 
+        YEAR(event_date) as year, 
+        MONTH(event_date) as month
+    FROM event_requests 
+    WHERE status IN ('approved', 'declined')
+    ORDER BY year DESC, month DESC
+");
+$availableMonths = $stmt->fetchAll();
 
 // Include header
 include 'includes/header.php';
@@ -75,7 +105,7 @@ include 'includes/navbar.php';
     <div class="row mb-4">
         <div class="col-md-4">
             <div class="stats-card">
-                <h6 class="text-muted">Total Processed</h6>
+                <h6 class="text-muted">Total Events</h6>
                 <h2 class="text-primary"><?= $totalProcessed ?></h2>
             </div>
         </div>
@@ -94,11 +124,14 @@ include 'includes/navbar.php';
     </div>
 
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="mb-0">
                 <i class="fas fa-history"></i> Notification History
+                <?php if ($totalItems > 0): ?>
+                    <span class="badge bg-secondary"><?= $totalItems ?> total</span>
+                <?php endif; ?>
             </h5>
-            <div class="d-flex gap-2">
+            <div class="d-flex gap-2 flex-wrap">
                 <!-- Status Filter -->
                 <select class="form-select form-select-sm" style="width: auto;" 
                         onchange="window.location.href='history.php?status=' + this.value + '&month=<?= $filterMonth ?>&year=<?= $filterYear ?>'">
@@ -107,23 +140,16 @@ include 'includes/navbar.php';
                     <option value="declined" <?= $filterStatus === 'declined' ? 'selected' : '' ?>>Declined</option>
                 </select>
                 
-                <!-- Month Filter -->
+                <!-- Month/Year Filter -->
                 <select class="form-select form-select-sm" style="width: auto;"
-                        onchange="window.location.href='history.php?status=<?= $filterStatus ?>&month=' + this.value + '&year=<?= $filterYear ?>'">
-                    <option value="">All Months</option>
-                    <?php for ($m = 1; $m <= 12; $m++): ?>
-                        <option value="<?= $m ?>" <?= $filterMonth == $m ? 'selected' : '' ?>>
-                            <?= date('F', mktime(0, 0, 0, $m, 1)) ?>
+                        onchange="window.location.href='history.php?status=<?= $filterStatus ?>&month=' + this.value.split('-')[0] + '&year=' + this.value.split('-')[1]">
+                    <option value="0-0">All Time</option>
+                    <?php foreach ($availableMonths as $m): ?>
+                        <option value="<?= $m['month'] ?>-<?= $m['year'] ?>" 
+                                <?= ($filterMonth == $m['month'] && $filterYear == $m['year']) ? 'selected' : '' ?>>
+                            <?= date('F Y', mktime(0, 0, 0, $m['month'], 1, $m['year'])) ?>
                         </option>
-                    <?php endfor; ?>
-                </select>
-                
-                <!-- Year Filter -->
-                <select class="form-select form-select-sm" style="width: auto;"
-                        onchange="window.location.href='history.php?status=<?= $filterStatus ?>&month=<?= $filterMonth ?>&year=' + this.value">
-                    <?php for ($y = date('Y'); $y >= 2020; $y--): ?>
-                        <option value="<?= $y ?>" <?= $filterYear == $y ? 'selected' : '' ?>><?= $y ?></option>
-                    <?php endfor; ?>
+                    <?php endforeach; ?>
                 </select>
             </div>
         </div>
@@ -140,7 +166,7 @@ include 'includes/navbar.php';
                             <tr>
                                 <th>Event Name</th>
                                 <th>Organization</th>
-                                <th>Event Date</th>
+                                <th>Event Date & Time</th>
                                 <th>Status</th>
                                 <th>Reviewed By</th>
                                 <th>Notification Sent</th>
@@ -157,14 +183,14 @@ include 'includes/navbar.php';
                                     <td>
                                         <?= formatDate($item['event_date']) ?>
                                         <br>
-                                        <small class="text-muted"><?= formatTime($item['event_time']) ?></small>
+                                        <small class="text-muted">
+                                            <?= formatTime($item['event_time']) ?>
+                                            <?php if ($item['event_end_time']): ?>
+                                                - <?= formatTime($item['event_end_time']) ?>
+                                            <?php endif; ?>
+                                        </small>
                                     </td>
-                                    <td>
-                                        <?= getStatusBadge($item['status']) ?>
-                                        <br>
-                                        <small class="text-muted"><?= ucfirst($item['action_type']) ?></small>
-                                    </td>
-
+                                    <td><?= getStatusBadge($item['status']) ?></td>
                                     <td>
                                         <?= htmlspecialchars($item['admin_name'] ?? 'N/A') ?>
                                         <br>
@@ -194,6 +220,53 @@ include 'includes/navbar.php';
                         </tbody>
                     </table>
                 </div>
+                
+                <!-- Pagination -->
+                <?php if ($totalPages > 1): ?>
+                <div class="d-flex justify-content-between align-items-center p-3 border-top">
+                    <div class="text-muted">
+                        Showing <?= $offset + 1 ?> to <?= min($offset + $itemsPerPage, $totalItems) ?> of <?= $totalItems ?> events
+                    </div>
+                    <nav>
+                        <ul class="pagination mb-0">
+                            <!-- Previous -->
+                            <li class="page-item <?= $currentPage <= 1 ? 'disabled' : '' ?>">
+                                <a class="page-link" href="?page=<?= $currentPage - 1 ?>&status=<?= $filterStatus ?>&month=<?= $filterMonth ?>&year=<?= $filterYear ?>">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                            
+                            <!-- Page numbers -->
+                            <?php
+                            $startPage = max(1, $currentPage - 2);
+                            $endPage = min($totalPages, $currentPage + 2);
+                            
+                            if ($startPage > 1) {
+                                echo '<li class="page-item"><a class="page-link" href="?page=1&status=' . $filterStatus . '&month=' . $filterMonth . '&year=' . $filterYear . '">1</a></li>';
+                                if ($startPage > 2) echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                            }
+                            
+                            for ($i = $startPage; $i <= $endPage; $i++) {
+                                $activeClass = $i == $currentPage ? 'active' : '';
+                                echo '<li class="page-item ' . $activeClass . '"><a class="page-link" href="?page=' . $i . '&status=' . $filterStatus . '&month=' . $filterMonth . '&year=' . $filterYear . '">' . $i . '</a></li>';
+                            }
+                            
+                            if ($endPage < $totalPages) {
+                                if ($endPage < $totalPages - 1) echo '<li class="page-item disabled"><span class="page-link">...</span></li>';
+                                echo '<li class="page-item"><a class="page-link" href="?page=' . $totalPages . '&status=' . $filterStatus . '&month=' . $filterMonth . '&year=' . $filterYear . '">' . $totalPages . '</a></li>';
+                            }
+                            ?>
+                            
+                            <!-- Next -->
+                            <li class="page-item <?= $currentPage >= $totalPages ? 'disabled' : '' ?>">
+                                <a class="page-link" href="?page=<?= $currentPage + 1 ?>&status=<?= $filterStatus ?>&month=<?= $filterMonth ?>&year=<?= $filterYear ?>">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>
@@ -201,13 +274,37 @@ include 'includes/navbar.php';
     <div class="alert alert-info mt-4">
         <h6><i class="fas fa-info-circle"></i> About Notification History</h6>
         <ul class="mb-0">
-            <li>This page shows all approved and declined event requests</li>
-            <li>Filter by status, month, or year to find specific records</li>
+            <li>This page shows all approved and declined event requests, sorted by event date (January to December)</li>
+            <li>Use the filters to find specific events by status or time period</li>
             <li>Click "View" to see full details of any request</li>
             <li>Notifications are automatically sent when you approve or decline a request</li>
+            <li>Showing <?= $itemsPerPage ?> events per page for easier navigation</li>
         </ul>
     </div>
 </div>
+
+<style>
+.pagination .page-link {
+    color: var(--evsu-maroon);
+    border-color: #dee2e6;
+}
+
+.pagination .page-item.active .page-link {
+    background-color: var(--evsu-maroon);
+    border-color: var(--evsu-maroon);
+    color: white;
+}
+
+.pagination .page-link:hover {
+    background-color: var(--maroon-light);
+    border-color: var(--evsu-gold);
+}
+
+.pagination .page-item.disabled .page-link {
+    color: #6c757d;
+    background-color: #fff;
+}
+</style>
 
 <?php
 // Include footer
