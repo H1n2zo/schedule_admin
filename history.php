@@ -35,20 +35,21 @@ if ($filterMonth && $filterYear) {
     $params[] = $filterYear;
 }
 
-// Get all approved and declined requests
+// Fetch notification history
 $stmt = $db->prepare("
-    SELECT 
-        er.*,
-        u.full_name as admin_name,
-        nh.sent_at,
-        nh.subject as notification_subject,
-        nh.attachments_sent
-    FROM event_requests er
-    LEFT JOIN users u ON er.reviewed_by = u.id
-    LEFT JOIN notification_history nh ON er.id = nh.request_id
-    $whereClause
-    AND er.status IN ('approved', 'declined')
-    ORDER BY er.reviewed_at DESC
+SELECT 
+    er.*,
+    u.full_name AS admin_name,
+    nh.sent_at,
+    nh.subject AS notification_subject,
+    nh.attachments_sent,
+    nh.action_type
+FROM event_requests er
+INNER JOIN notification_history nh ON nh.request_id = er.id -- Changed from LEFT JOIN
+LEFT JOIN users u ON nh.admin_id = u.id
+$whereClause
+AND er.status IN ('approved', 'declined')
+ORDER BY nh.sent_at DESC
 ");
 $stmt->execute($params);
 $history = $stmt->fetchAll();
@@ -158,7 +159,12 @@ include 'includes/navbar.php';
                                         <br>
                                         <small class="text-muted"><?= formatTime($item['event_time']) ?></small>
                                     </td>
-                                    <td><?= getStatusBadge($item['status']) ?></td>
+                                    <td>
+                                        <?= getStatusBadge($item['status']) ?>
+                                        <br>
+                                        <small class="text-muted"><?= ucfirst($item['action_type']) ?></small>
+                                    </td>
+
                                     <td>
                                         <?= htmlspecialchars($item['admin_name'] ?? 'N/A') ?>
                                         <br>
