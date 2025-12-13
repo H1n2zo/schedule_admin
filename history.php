@@ -104,22 +104,28 @@ include 'includes/navbar.php';
     <!-- Stats Cards -->
     <div class="row mb-4">
         <div class="col-md-4">
-            <div class="stats-card">
-                <h6 class="text-muted">Total Events</h6>
-                <h2 class="text-primary"><?= $totalProcessed ?></h2>
-            </div>
+            <a href="history.php" class="stats-card-link">
+                <div class="stats-card">
+                    <h6 class="text-muted">Total Events</h6>
+                    <h2 class="text-primary"><?= $totalProcessed ?></h2>
+                </div>
+            </a>
         </div>
         <div class="col-md-4">
-            <div class="stats-card">
-                <h6 class="text-muted">Approved</h6>
-                <h2 class="text-success"><?= $totalApproved ?></h2>
-            </div>
+            <a href="history.php?status=approved" class="stats-card-link">
+                <div class="stats-card">
+                    <h6 class="text-muted">Approved</h6>
+                    <h2 class="text-success"><?= $totalApproved ?></h2>
+                </div>
+            </a>
         </div>
         <div class="col-md-4">
-            <div class="stats-card">
-                <h6 class="text-muted">Declined</h6>
-                <h2 class="text-danger"><?= $totalDeclined ?></h2>
-            </div>
+            <a href="history.php?status=declined" class="stats-card-link">
+                <div class="stats-card">
+                    <h6 class="text-muted">Declined</h6>
+                    <h2 class="text-danger"><?= $totalDeclined ?></h2>
+                </div>
+            </a>
         </div>
     </div>
 
