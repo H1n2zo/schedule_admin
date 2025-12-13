@@ -378,11 +378,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (occupiedDates[selectedDate]) {
-                const event = occupiedDates[selectedDate];
                 availabilityMsg.className = 'form-text occupied';
                 availabilityMsg.innerHTML = `
                     <i class="fas fa-times-circle"></i> 
-                    <strong>NOT AVAILABLE</strong> - This date is already taken by "${event.event_name}" (${event.organization})
+                    <strong>NOT AVAILABLE</strong> - This date is already taken
                 `;
                 this.value = '';
             } else {
