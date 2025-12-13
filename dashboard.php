@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Dashboard Page - Fixed Calendar Display
+ * Dashboard Page - FIXED to show event end time
  * File: dashboard.php
  */
 
@@ -19,11 +19,12 @@ $db = getDB();
 $currentMonth = isset($_GET['month']) ? (int)$_GET['month'] : date('n');
 $currentYear = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
 $selectedDate = isset($_GET['date']) ? $_GET['date'] : null;
+$showAllPending = isset($_GET['status']) && $_GET['status'] === 'pending';
 
 // Get ALL requests for the current month (for calendar display)
 $stmt = $db->prepare("
     SELECT 
-        id, event_name, organization, event_date, event_time, 
+        id, event_name, organization, event_date, event_time, event_end_time,
         volunteers_needed, status, requester_email, requester_name
     FROM event_requests 
     WHERE MONTH(event_date) = ? AND YEAR(event_date) = ?
@@ -32,10 +33,10 @@ $stmt = $db->prepare("
 $stmt->execute([$currentMonth, $currentYear]);
 $monthRequests = $stmt->fetchAll();
 
-// Get ONLY PENDING requests for sidebar display
+// Get ONLY PENDING requests for current month (for normal calendar display)
 $stmt = $db->prepare("
     SELECT 
-        id, event_name, organization, event_date, event_time, 
+        id, event_name, organization, event_date, event_time, event_end_time,
         volunteers_needed, status, requester_email, requester_name
     FROM event_requests 
     WHERE MONTH(event_date) = ? AND YEAR(event_date) = ?
@@ -45,12 +46,26 @@ $stmt = $db->prepare("
 $stmt->execute([$currentMonth, $currentYear]);
 $pendingRequests = $stmt->fetchAll();
 
-// Filter for sidebar display based on selected date
-$displayRequests = $pendingRequests;
+// Get ALL pending requests (for "show all" mode in sidebar)
+$stmt = $db->query("
+    SELECT 
+        id, event_name, organization, event_date, event_time, event_end_time,
+        volunteers_needed, status, requester_email, requester_name
+    FROM event_requests 
+    WHERE status = 'pending'
+    ORDER BY event_date, event_time
+");
+$allPendingRequests = $stmt->fetchAll();
+
+// Filter for sidebar display based on selected date OR show all mode
+$displayRequests = $pendingRequests; // Default: current month pending
 $displayApprovedRequests = [];
 
-if ($selectedDate) {
-    // Show pending requests for selected date
+if ($showAllPending) {
+    // Show ALL pending requests from all time
+    $displayRequests = $allPendingRequests;
+} elseif ($selectedDate) {
+    // Show pending requests for selected date only
     $displayRequests = array_filter($pendingRequests, function($req) use ($selectedDate) {
         return $req['event_date'] === $selectedDate;
     });
@@ -58,7 +73,7 @@ if ($selectedDate) {
     // Also get approved events for the selected date
     $stmt = $db->prepare("
         SELECT 
-            id, event_name, organization, event_date, event_time, 
+            id, event_name, organization, event_date, event_time, event_end_time,
             volunteers_needed, status, requester_email, requester_name
         FROM event_requests 
         WHERE event_date = ? AND status = 'approved'
@@ -132,7 +147,7 @@ $stmt = $db->query("
         COUNT(*) as request_count
     FROM event_requests 
     GROUP BY YEAR(event_date), MONTH(event_date)
-    ORDER BY year DESC, month DESC
+    ORDER BY year ASC, month ASC
 ");
 $monthsWithRequests = $stmt->fetchAll();
 
@@ -154,8 +169,8 @@ include 'includes/navbar.php';
                         <div class="stats-card">
                             <h6 class="text-muted">Pending Requests</h6>
                             <h2 class="text-warning"><?= $totalPending ?></h2>
-                            <small class="text-success">
-                                <i></i> Click to view under review
+                            <small class="text-muted">
+                                <i class="fas fa-mouse-pointer"></i> Click to view all pending
                             </small>
                         </div>
                     </a>
@@ -188,13 +203,13 @@ include 'includes/navbar.php';
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h4><?= $monthName ?></h4>
                 <div>
-                    <button onclick="navigateMonth(<?= $prevMonth ?>, <?= $prevYear ?>)" class="btn btn-sm btn-outline-primary">
+                    <a href="dashboard.php?month=<?= $prevMonth ?>&year=<?= $prevYear ?>" class="btn btn-sm btn-outline-primary">
                         <i class="fas fa-chevron-left"></i> Prev
-                    </button>
+                    </a>
                     <a href="dashboard.php" class="btn btn-sm btn-primary">Today</a>
-                    <button onclick="navigateMonth(<?= $nextMonth ?>, <?= $nextYear ?>)" class="btn btn-sm btn-outline-primary">
+                    <a href="dashboard.php?month=<?= $nextMonth ?>&year=<?= $nextYear ?>" class="btn btn-sm btn-outline-primary">
                         Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    </a>
                 </div>
             </div>
 
@@ -206,13 +221,13 @@ include 'includes/navbar.php';
                 <div class="d-flex flex-wrap gap-2">
                     <?php foreach ($monthsWithRequests as $mr): 
                         $monthLabel = date('F Y', mktime(0, 0, 0, $mr['month'], 1, $mr['year']));
-                        $isActive = ($mr['month'] == $currentMonth && $mr['year'] == $currentYear);
+                        $isActive = ($mr['month'] == $currentMonth && $mr['year'] == $currentYear && !$showAllPending);
                     ?>
-                        <button onclick="navigateMonth(<?= $mr['month'] ?>, <?= $mr['year'] ?>)" 
-                               class="btn btn-sm <?= $isActive ? 'btn-primary' : 'btn-outline-secondary' ?> month-quick-link">
+                        <a href="dashboard.php?month=<?= $mr['month'] ?>&year=<?= $mr['year'] ?>" 
+                           class="btn btn-sm <?= $isActive ? 'btn-primary' : 'btn-outline-secondary' ?> month-quick-link">
                             <?= $monthLabel ?>
                             <span class="badge bg-light text-dark ms-1"><?= $mr['request_count'] ?></span>
-                        </button>
+                        </a>
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -273,7 +288,11 @@ include 'includes/navbar.php';
         <!-- Sidebar - Shows Approved + Pending for selected date, or All Pending -->
         <div class="col-md-4 p-4 bg-white sidebar-section">
             <div class="d-flex justify-content-between align-items-center mb-3">
-                <?php if ($selectedDate): ?>
+                <?php if ($showAllPending): ?>
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-circle"></i> All Pending Requests
+                    </h5>
+                <?php elseif ($selectedDate): ?>
                     <h5 class="mb-0">
                         <i class="fas fa-calendar-day"></i> <?= formatDate($selectedDate) ?>
                     </h5>
@@ -290,10 +309,12 @@ include 'includes/navbar.php';
             <div class="alert alert-info alert-sm">
                 <small>
                     <i class="fas fa-info-circle"></i> 
-                    <?php if ($selectedDate): ?>
+                    <?php if ($showAllPending): ?>
+                        Showing all pending requests from all months. Click any month to filter.
+                    <?php elseif ($selectedDate): ?>
                         Showing all events for this date.
                     <?php else: ?>
-                        Showing pending requests only. 
+                        Showing pending requests for <?= $monthName ?> only. 
                         <a href="history.php" class="alert-link">View history</a> for approved/declined.
                     <?php endif; ?>
                 </small>
@@ -307,10 +328,21 @@ include 'includes/navbar.php';
                         Show All Pending
                     </button>
                 </div>
-            <?php elseif (!$selectedDate && empty($displayRequests)): ?>
+            <?php elseif (!$selectedDate && !$showAllPending && empty($displayRequests)): ?>
                 <div class="text-center py-5">
                     <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
                     <p class="text-muted">No pending requests for this month.</p>
+                    <a href="dashboard.php?status=pending" class="btn btn-sm btn-warning">
+                        <i class="fas fa-list"></i> Show All Pending
+                    </a>
+                </div>
+            <?php elseif ($showAllPending && empty($displayRequests)): ?>
+                <div class="text-center py-5">
+                    <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                    <p class="text-muted">No pending requests found! All caught up.</p>
+                    <a href="dashboard.php" class="btn btn-sm btn-primary">
+                        <i class="fas fa-calendar"></i> Back to Calendar
+                    </a>
                 </div>
             <?php else: ?>
                 <?php if ($selectedDate): ?>
@@ -328,8 +360,11 @@ include 'includes/navbar.php';
                                     <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
                                     <small class="text-muted">
                                         <i class="fas fa-building"></i> <?= htmlspecialchars($req['organization']) ?><br>
-                                        <i class="fas fa-calendar"></i> <?= formatDate($req['event_date']) ?> 
-                                        <i class="fas fa-clock"></i> <?= formatTime($req['event_time']) ?><br>
+                                        <i class="fas fa-calendar"></i> <?= formatDate($req['event_date']) ?><br>
+                                        <i class="fas fa-clock"></i> <?= formatTime($req['event_time']) ?>
+                                        <?php if ($req['event_end_time']): ?>
+                                            - <?= formatTime($req['event_end_time']) ?>
+                                        <?php endif; ?><br>
                                         <i class="fas fa-users"></i> <?= $req['volunteers_needed'] ?> volunteers
                                     </small>
                                     <div class="mt-2">
@@ -357,8 +392,11 @@ include 'includes/navbar.php';
                                     <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
                                     <small class="text-muted">
                                         <i class="fas fa-building"></i> <?= htmlspecialchars($req['organization']) ?><br>
-                                        <i class="fas fa-calendar"></i> <?= formatDate($req['event_date']) ?> 
-                                        <i class="fas fa-clock"></i> <?= formatTime($req['event_time']) ?><br>
+                                        <i class="fas fa-calendar"></i> <?= formatDate($req['event_date']) ?><br>
+                                        <i class="fas fa-clock"></i> <?= formatTime($req['event_time']) ?>
+                                        <?php if ($req['event_end_time']): ?>
+                                            - <?= formatTime($req['event_end_time']) ?>
+                                        <?php endif; ?><br>
                                         <i class="fas fa-users"></i> <?= $req['volunteers_needed'] ?> volunteers
                                     </small>
                                     <div class="mt-2">
@@ -373,10 +411,13 @@ include 'includes/navbar.php';
                     <?php endif; ?>
                     
                 <?php else: ?>
-                    <!-- Show All Pending (No Date Selected) -->
+                    <!-- Show All Pending (No Date Selected OR Show All Mode) -->
                     <div class="pending-count-badge mb-3">
                         <i class="fas fa-exclamation-circle"></i> 
                         <?= count($displayRequests) ?> pending request<?= count($displayRequests) > 1 ? 's' : '' ?>
+                        <?php if ($showAllPending): ?>
+                            <span class="ms-2 badge bg-warning text-dark">All Time</span>
+                        <?php endif; ?>
                     </div>
                     
                     <div id="requestsList">
@@ -387,8 +428,11 @@ include 'includes/navbar.php';
                             <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
                             <small class="text-muted">
                                 <i class="fas fa-building"></i> <?= htmlspecialchars($req['organization']) ?><br>
-                                <i class="fas fa-calendar"></i> <?= formatDate($req['event_date']) ?> 
-                                <i class="fas fa-clock"></i> <?= formatTime($req['event_time']) ?><br>
+                                <i class="fas fa-calendar"></i> <?= formatDate($req['event_date']) ?><br>
+                                <i class="fas fa-clock"></i> <?= formatTime($req['event_time']) ?>
+                                <?php if ($req['event_end_time']): ?>
+                                    - <?= formatTime($req['event_end_time']) ?>
+                                <?php endif; ?><br>
                                 <i class="fas fa-users"></i> <?= $req['volunteers_needed'] ?> volunteers
                             </small>
                             <div class="mt-2">
@@ -574,6 +618,22 @@ include 'includes/navbar.php';
         .calendar-legend {
             font-size: 0.75rem;
         }
+    }
+    
+    /* Fix stats card links - remove blue underline */
+    .stats-card-link {
+        text-decoration: none;
+        color: inherit;
+        display: block;
+    }
+    
+    .stats-card-link:hover {
+        text-decoration: none;
+        color: inherit;
+    }
+    
+    .stats-card-clickable {
+        cursor: pointer;
     }
 </style>
 

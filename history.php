@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Notification History Page with Pagination
+ * Notification History Page with Pagination - FIXED stats card styling
  * File: history.php
  */
 
@@ -309,6 +309,18 @@ include 'includes/navbar.php';
 .pagination .page-item.disabled .page-link {
     color: #6c757d;
     background-color: #fff;
+}
+
+/* Fix stats card links - remove blue underline */
+.stats-card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.stats-card-link:hover {
+    text-decoration: none;
+    color: inherit;
 }
 </style>
 

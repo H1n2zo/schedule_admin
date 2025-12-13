@@ -63,15 +63,11 @@
     };
 
     // ============================================
-    // Calendar Navigation
+    // Calendar Navigation - FIXED: Remove status parameter
     // ============================================
     window.navigateMonth = function(month, year) {
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set('month', month);
-        currentUrl.searchParams.set('year', year);
-        // Remove date parameter when navigating months
-        currentUrl.searchParams.delete('date');
-        window.location.href = currentUrl.toString();
+        // Build clean URL with only month and year (removes status parameter)
+        window.location.href = 'dashboard.php?month=' + month + '&year=' + year;
     };
 
     // ============================================

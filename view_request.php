@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * View Request Page - Direct Approve/Decline with Notification
+ * View Request Page - FIXED to show event end time
  * File: view_request.php
  */
 
@@ -126,7 +126,18 @@ include 'includes/navbar.php';
             <div class="info-row">
                 <div class="info-label">Event Time:</div>
                 <div class="info-value">
-                    <?= formatTime($request['event_time']) ?>
+                    <strong><?= formatTime($request['event_time']) ?></strong>
+                    <?php if ($request['event_end_time']): ?>
+                        to <strong><?= formatTime($request['event_end_time']) ?></strong>
+                        <small class="text-muted ms-2">
+                            <?php 
+                            $start = strtotime($request['event_time']);
+                            $end = strtotime($request['event_end_time']);
+                            $duration = ($end - $start) / 3600; // hours
+                            echo "(" . number_format($duration, 1) . " hours)";
+                            ?>
+                        </small>
+                    <?php endif; ?>
                 </div>
             </div>
             
@@ -162,17 +173,51 @@ include 'includes/navbar.php';
             <?php if (!empty($attachments)): ?>
             <div class="attachments-section">
                 <h6 class="mb-3"><i class="fas fa-paperclip"></i> Attachments (<?= count($attachments) ?>)</h6>
-                <?php foreach ($attachments as $file): ?>
-                    <div class="attachment-item">
-                        <i class="fas fa-file"></i>
-                        <a href="<?= $file['file_path'] ?>" target="_blank">
-                            <?= htmlspecialchars($file['file_name']) ?>
-                        </a>
-                        <small class="text-muted">
-                            (<?= number_format($file['file_size'] / 1024, 2) ?> KB)
-                        </small>
-                    </div>
-                <?php endforeach; ?>
+                
+                <div class="attachments-grid">
+                    <?php foreach ($attachments as $file): 
+                        $isImage = strpos($file['file_type'], 'image') !== false;
+                        $isPDF = strpos($file['file_type'], 'pdf') !== false;
+                        $fileExtension = strtolower(pathinfo($file['file_name'], PATHINFO_EXTENSION));
+                    ?>
+                        <div class="attachment-card">
+                            <?php if ($isImage): ?>
+                                <!-- Image Preview -->
+                                <div class="attachment-preview image-preview" onclick="window.open('download.php?id=<?= $file['id'] ?>&action=view', '_blank')">
+                                    <img src="download.php?id=<?= $file['id'] ?>&action=view" alt="<?= htmlspecialchars($file['file_name']) ?>">
+                                </div>
+                            <?php elseif ($isPDF): ?>
+                                <!-- PDF Icon -->
+                                <div class="attachment-preview pdf-preview" onclick="window.open('download.php?id=<?= $file['id'] ?>&action=view', '_blank')">
+                                    <i class="fas fa-file-pdf"></i>
+                                </div>
+                            <?php else: ?>
+                                <!-- Generic File Icon -->
+                                <div class="attachment-preview file-preview" onclick="window.open('download.php?id=<?= $file['id'] ?>&action=view', '_blank')">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <div class="attachment-info">
+                                <div class="attachment-name" title="<?= htmlspecialchars($file['file_name']) ?>">
+                                    <?= htmlspecialchars($file['file_name']) ?>
+                                </div>
+                                <div class="attachment-size">
+                                    <?= number_format($file['file_size'] / 1024, 2) ?> KB
+                                </div>
+                            </div>
+                            
+                            <div class="attachment-actions">
+                                <a href="download.php?id=<?= $file['id'] ?>&action=view" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-external-link-alt"></i> Open
+                                </a>
+                                <a href="download.php?id=<?= $file['id'] ?>&action=download" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-download"></i> Download
+                                </a>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
             <?php endif; ?>
         </div>
@@ -303,6 +348,146 @@ include 'includes/navbar.php';
         border: 1px solid var(--gold-dark);
     }
     
+    .attachments-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+    
+    .attachment-card {
+        background: white;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .attachment-card:hover {
+        border-color: var(--evsu-gold);
+        box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+        transform: translateY(-3px);
+    }
+    
+    .attachment-preview {
+        width: 100%;
+        height: 180px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+        overflow: hidden;
+        cursor: pointer;
+    }
+    
+    .attachment-preview.image-preview {
+        position: relative;
+    }
+    
+    .attachment-preview.image-preview:hover::after {
+        content: 'Click to Open';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: white;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+        background: rgba(128, 0, 0, 0.9);
+        padding: 10px 20px;
+        border-radius: 8px;
+    }
+    
+    .attachment-preview.image-preview:hover {
+        background: rgba(0,0,0,0.7);
+    }
+    
+    .attachment-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: all 0.3s ease;
+    }
+    
+    .attachment-preview.image-preview:hover img {
+        opacity: 0.3;
+    }
+    
+    .attachment-preview.pdf-preview {
+        background: #dc3545;
+        transition: all 0.3s ease;
+    }
+    
+    .attachment-preview.pdf-preview:hover {
+        background: #c82333;
+        transform: scale(1.05);
+    }
+    
+    .attachment-preview.pdf-preview i {
+        font-size: 4rem;
+        color: white;
+        transition: all 0.3s ease;
+    }
+    
+    .attachment-preview.pdf-preview:hover i {
+        transform: scale(1.1);
+    }
+    
+    .attachment-preview.file-preview {
+        background: #6c757d;
+        transition: all 0.3s ease;
+    }
+    
+    .attachment-preview.file-preview:hover {
+        background: #5a6268;
+        transform: scale(1.05);
+    }
+    
+    .attachment-preview.file-preview i {
+        font-size: 4rem;
+        color: white;
+        transition: all 0.3s ease;
+    }
+    
+    .attachment-preview.file-preview:hover i {
+        transform: scale(1.1);
+    }
+    
+    .attachment-info {
+        padding: 15px;
+        flex-grow: 1;
+    }
+    
+    .attachment-name {
+        font-weight: 600;
+        color: var(--evsu-maroon);
+        margin-bottom: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .attachment-size {
+        font-size: 0.85rem;
+        color: #6c757d;
+    }
+    
+    .attachment-actions {
+        padding: 10px 15px;
+        background: #f8f9fa;
+        border-top: 1px solid #dee2e6;
+        display: flex;
+        gap: 8px;
+    }
+    
+    .attachment-actions .btn {
+        flex: 1;
+        font-size: 0.85rem;
+    }
+    
     .attachment-item {
         display: inline-block;
         padding: 10px 15px;
@@ -338,6 +523,10 @@ include 'includes/navbar.php';
         
         .action-buttons .d-flex {
             width: 100%;
+        }
+        
+        .attachments-grid {
+            grid-template-columns: 1fr;
         }
     }
 </style>
