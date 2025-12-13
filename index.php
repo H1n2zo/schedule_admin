@@ -173,7 +173,7 @@ include 'includes/header.php';
             Submit your event request today and let us help make your event a success!
         </p>
         <a href="submit_request.php" class="btn btn-hero btn-hero-primary" style="border-color: white;">
-            <i class="fas fa-rocket"></i> Submit Event Request Now
+            <i class="fas fa-calendar-plus"></i> Submit Event Request Now
         </a>
     </div>
 </section>

@@ -153,8 +153,7 @@ include 'includes/navbar.php';
                 <div class="info-box">
                     <h6><i class="fas fa-info-circle"></i> Important Information</h6>
                     <ul style="margin: 0; color: #6c757d;">
-                        <li><strong>Date Availability:</strong> Only one event can be approved per date</li>
-                        <li><strong>Blocked Dates:</strong> Dates with approved events are disabled and cannot be selected</li>
+                        <li><strong>Blocked Dates:</strong> Only one event can be approved per date</li>
                         <li><strong>Advance Notice:</strong> Submit requests at least 1 week in advance</li>
                         <li><strong>Time Details:</strong> Provide both start and end times for your event</li>
                         <li><strong>Attachments:</strong> At least one supporting document is required</li>

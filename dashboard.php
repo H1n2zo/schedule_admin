@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Dashboard Page - FIXED to show event end time
+ * Dashboard Page - FIXED with filter functionality
  * File: dashboard.php
  */
 
@@ -19,7 +19,12 @@ $db = getDB();
 $currentMonth = isset($_GET['month']) ? (int)$_GET['month'] : date('n');
 $currentYear = isset($_GET['year']) ? (int)$_GET['year'] : date('Y');
 $selectedDate = isset($_GET['date']) ? $_GET['date'] : null;
-$showAllPending = isset($_GET['status']) && $_GET['status'] === 'pending';
+
+// CHANGED: Handle filter parameter instead of status
+$filterStatus = isset($_GET['filter']) ? $_GET['filter'] : null;
+$showAllPending = $filterStatus === 'pending';
+$showAllApproved = $filterStatus === 'approved';
+$showAllDeclined = $filterStatus === 'declined';
 
 // Get ALL requests for the current month (for calendar display)
 $stmt = $db->prepare("
@@ -57,14 +62,35 @@ $stmt = $db->query("
 ");
 $allPendingRequests = $stmt->fetchAll();
 
+// ADDED: Get ALL approved requests
+$stmt = $db->query("
+    SELECT 
+        id, event_name, organization, event_date, event_time, event_end_time,
+        volunteers_needed, status, requester_email, requester_name
+    FROM event_requests 
+    WHERE status = 'approved'
+    ORDER BY event_date, event_time
+");
+$allApprovedRequests = $stmt->fetchAll();
+
+// ADDED: Get ALL declined requests
+$stmt = $db->query("
+    SELECT 
+        id, event_name, organization, event_date, event_time, event_end_time,
+        volunteers_needed, status, requester_email, requester_name
+    FROM event_requests 
+    WHERE status = 'declined'
+    ORDER BY event_date, event_time
+");
+$allDeclinedRequests = $stmt->fetchAll();
+
 // Filter for sidebar display based on selected date OR show all mode
 $displayRequests = $pendingRequests; // Default: current month pending
 $displayApprovedRequests = [];
+$displayDeclinedRequests = [];
 
-if ($showAllPending) {
-    // Show ALL pending requests from all time
-    $displayRequests = $allPendingRequests;
-} elseif ($selectedDate) {
+// CHANGED: When clicking a date, clear filters
+if ($selectedDate) {
     // Show pending requests for selected date only
     $displayRequests = array_filter($pendingRequests, function($req) use ($selectedDate) {
         return $req['event_date'] === $selectedDate;
@@ -81,6 +107,29 @@ if ($showAllPending) {
     ");
     $stmt->execute([$selectedDate]);
     $displayApprovedRequests = $stmt->fetchAll();
+    
+    // ADDED: Get declined events for the selected date
+    $stmt = $db->prepare("
+        SELECT 
+            id, event_name, organization, event_date, event_time, event_end_time,
+            volunteers_needed, status, requester_email, requester_name
+        FROM event_requests 
+        WHERE event_date = ? AND status = 'declined'
+        ORDER BY event_time
+    ");
+    $stmt->execute([$selectedDate]);
+    $displayDeclinedRequests = $stmt->fetchAll();
+} elseif ($showAllPending) {
+    // Show ALL pending requests from all time
+    $displayRequests = $allPendingRequests;
+} elseif ($showAllApproved) {
+    // Show ALL approved requests
+    $displayRequests = [];
+    $displayApprovedRequests = $allApprovedRequests;
+} elseif ($showAllDeclined) {
+    // Show ALL declined requests
+    $displayRequests = [];
+    $displayDeclinedRequests = $allDeclinedRequests;
 }
 
 // Get stats
@@ -98,6 +147,7 @@ $requestsByDate = [];
 $countsByDate = [];
 $approvedByDate = [];
 $pendingByDate = [];
+$declinedByDate = []; // ADDED
 
 foreach ($monthRequests as $request) {
     $date = $request['event_date'];
@@ -106,6 +156,7 @@ foreach ($monthRequests as $request) {
         $countsByDate[$date] = 0;
         $approvedByDate[$date] = 0;
         $pendingByDate[$date] = 0;
+        $declinedByDate[$date] = 0; // ADDED
     }
     $requestsByDate[$date][] = $request;
     $countsByDate[$date]++;
@@ -115,6 +166,9 @@ foreach ($monthRequests as $request) {
     }
     if ($request['status'] === 'pending') {
         $pendingByDate[$date]++;
+    }
+    if ($request['status'] === 'declined') { // ADDED
+        $declinedByDate[$date]++;
     }
 }
 
@@ -165,34 +219,37 @@ include 'includes/navbar.php';
             <!-- Stats Cards -->
             <div class="row mb-4">
                 <div class="col-md-4">
-                    <a href="dashboard.php?status=pending" class="stats-card-link">
-                        <div class="stats-card">
-                            <h6 class="text-muted">Pending Requests</h6>
+                    <!-- CHANGED: filter=pending instead of status=pending -->
+                    <a href="dashboard.php?filter=pending" class="stats-card-link">
+                        <div class="stats-card <?= $showAllPending ? 'active-filter' : '' ?>">
+                            <h6 class="text-muted">Under Review</h6>
                             <h2 class="text-warning"><?= $totalPending ?></h2>
                             <small class="text-muted">
-                                <i class="fas fa-mouse-pointer"></i> Click to view all pending
+                                <i class="fas fa-mouse-pointer"></i> Click to view all under review
                             </small>
                         </div>
                     </a>
                 </div>
                 <div class="col-md-4">
-                    <a href="history.php?status=approved" class="stats-card-link">
-                        <div class="stats-card stats-card-clickable">
+                    <!-- CHANGED: filter=approved instead of history.php -->
+                    <a href="dashboard.php?filter=approved" class="stats-card-link">
+                        <div class="stats-card stats-card-clickable <?= $showAllApproved ? 'active-filter' : '' ?>">
                             <h6 class="text-muted">Approved Events</h6>
                             <h2 class="text-success"><?= $totalApproved ?></h2>
                             <small class="text-success">
-                                <i></i> Click to view all approved
+                                <i class="fas fa-mouse-pointer"></i> Click to view all approved
                             </small>
                         </div>
                     </a>
                 </div>
                 <div class="col-md-4">
-                    <a href="history.php?status=declined" class="stats-card-link">
-                        <div class="stats-card stats-card-clickable">
+                    <!-- CHANGED: filter=declined instead of history.php -->
+                    <a href="dashboard.php?filter=declined" class="stats-card-link">
+                        <div class="stats-card stats-card-clickable <?= $showAllDeclined ? 'active-filter' : '' ?>">
                             <h6 class="text-muted">Declined Requests</h6>
                             <h2 class="text-danger"><?= $totalDeclined ?></h2>
                             <small class="text-danger">
-                                <i></i> Click to view all declined
+                                <i class="fas fa-mouse-pointer"></i> Click to view all declined
                             </small>
                         </div>
                     </a>
@@ -221,7 +278,7 @@ include 'includes/navbar.php';
                 <div class="d-flex flex-wrap gap-2">
                     <?php foreach ($monthsWithRequests as $mr): 
                         $monthLabel = date('F Y', mktime(0, 0, 0, $mr['month'], 1, $mr['year']));
-                        $isActive = ($mr['month'] == $currentMonth && $mr['year'] == $currentYear && !$showAllPending);
+                        $isActive = ($mr['month'] == $currentMonth && $mr['year'] == $currentYear && !$showAllPending && !$showAllApproved && !$showAllDeclined);
                     ?>
                         <a href="dashboard.php?month=<?= $mr['month'] ?>&year=<?= $mr['year'] ?>" 
                            class="btn btn-sm <?= $isActive ? 'btn-primary' : 'btn-outline-secondary' ?> month-quick-link">
@@ -256,11 +313,13 @@ include 'includes/navbar.php';
                     $isSelected = ($date === $selectedDate) ? 'selected' : '';
                     $approvedCount = $approvedByDate[$date] ?? 0;
                     $pendingCount = $pendingByDate[$date] ?? 0;
+                    $declinedCount = $declinedByDate[$date] ?? 0; // ADDED
                     
                     // Only add has-approved class if there ARE approved events
                     $hasApproved = $approvedCount > 0 ? 'has-approved' : '';
+                    $hasDeclined = $declinedCount > 0 ? 'has-declined' : ''; // ADDED
                     
-                    echo "<div class='calendar-day $isToday $isSelected $hasApproved' data-date='$date' onclick='selectDate(\"$date\")'>";
+                    echo "<div class='calendar-day $isToday $isSelected $hasApproved $hasDeclined' data-date='$date' onclick='selectDate(\"$date\")'>";
                     
                     // Day number - bigger and centered
                     echo "<div class='day-number'>$day</div>";
@@ -269,6 +328,13 @@ include 'includes/navbar.php';
                     if ($approvedCount > 0) {
                         echo "<div class='approved-indicator' title='Has approved event'>";
                         echo "<i class='fas fa-check'></i>";
+                        echo "</div>";
+                    }
+                    
+                    // ADDED: Show declined indicator
+                    if ($declinedCount > 0) {
+                        echo "<div class='declined-indicator' title='$declinedCount declined request" . ($declinedCount > 1 ? 's' : '') . "'>";
+                        echo "<i class='fas fa-times'></i> $declinedCount";
                         echo "</div>";
                     }
                     
@@ -285,13 +351,30 @@ include 'includes/navbar.php';
             </div>
         </div>
 
-        <!-- Sidebar - Shows Approved + Pending for selected date, or All Pending -->
+        <!-- Sidebar - Shows Approved + Pending + Declined for selected date, or filtered view -->
         <div class="col-md-4 p-4 bg-white sidebar-section">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <?php if ($showAllPending): ?>
                     <h5 class="mb-0">
-                        <i class="fas fa-exclamation-circle"></i> All Pending Requests
+                        <i class="fas fa-clock"></i> All Under Review
                     </h5>
+                    <button onclick="window.location.href='dashboard.php'" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                <?php elseif ($showAllApproved): ?>
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle"></i> All Approved Events
+                    </h5>
+                    <button onclick="window.location.href='dashboard.php'" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                <?php elseif ($showAllDeclined): ?>
+                    <h5 class="mb-0">
+                        <i class="fas fa-times-circle"></i> All Declined Requests
+                    </h5>
+                    <button onclick="window.location.href='dashboard.php'" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
                 <?php elseif ($selectedDate): ?>
                     <h5 class="mb-0">
                         <i class="fas fa-calendar-day"></i> <?= formatDate($selectedDate) ?>
@@ -301,7 +384,7 @@ include 'includes/navbar.php';
                     </button>
                 <?php else: ?>
                     <h5 class="mb-0">
-                        <i class="fas fa-clock"></i> Pending Requests
+                        <i class="fas fa-clock"></i> Under Review
                     </h5>
                 <?php endif; ?>
             </div>
@@ -310,29 +393,32 @@ include 'includes/navbar.php';
                 <small>
                     <i class="fas fa-info-circle"></i> 
                     <?php if ($showAllPending): ?>
-                        Showing all pending requests from all months. Click any month to filter.
+                        Showing all under review from all months.
+                    <?php elseif ($showAllApproved): ?>
+                        Showing all approved events from all months.
+                    <?php elseif ($showAllDeclined): ?>
+                        Showing all declined requests from all months.
                     <?php elseif ($selectedDate): ?>
                         Showing all events for this date.
                     <?php else: ?>
-                        Showing pending requests for <?= $monthName ?> only. 
-                        <a href="history.php" class="alert-link">View history</a> for approved/declined.
+                        Showing pending requests for <?= $monthName ?> only. Click stats cards to filter.
                     <?php endif; ?>
                 </small>
             </div>
             
-            <?php if ($selectedDate && empty($displayRequests) && empty($displayApprovedRequests)): ?>
+            <?php if ($selectedDate && empty($displayRequests) && empty($displayApprovedRequests) && empty($displayDeclinedRequests)): ?>
                 <div class="text-center py-5">
                     <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
                     <p class="text-muted">No events on this date.</p>
                     <button onclick="clearDateFilter()" class="btn btn-sm btn-primary">
-                        Show All Pending
+                        Show All Under Review
                     </button>
                 </div>
-            <?php elseif (!$selectedDate && !$showAllPending && empty($displayRequests)): ?>
+            <?php elseif (!$selectedDate && !$showAllPending && !$showAllApproved && !$showAllDeclined && empty($displayRequests)): ?>
                 <div class="text-center py-5">
                     <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
                     <p class="text-muted">No pending requests for this month.</p>
-                    <a href="dashboard.php?status=pending" class="btn btn-sm btn-warning">
+                    <a href="dashboard.php?filter=pending" class="btn btn-sm btn-warning">
                         <i class="fas fa-list"></i> Show All Pending
                     </a>
                 </div>
@@ -343,6 +429,18 @@ include 'includes/navbar.php';
                     <a href="dashboard.php" class="btn btn-sm btn-primary">
                         <i class="fas fa-calendar"></i> Back to Calendar
                     </a>
+                </div>
+            <?php elseif ($showAllApproved && empty($displayApprovedRequests)): ?>
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No approved events found.</p>
+                    <a href="dashboard.php" class="btn btn-sm btn-primary">Back to Calendar</a>
+                </div>
+            <?php elseif ($showAllDeclined && empty($displayDeclinedRequests)): ?>
+                <div class="text-center py-5">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">No declined requests found.</p>
+                    <a href="dashboard.php" class="btn btn-sm btn-primary">Back to Calendar</a>
                 </div>
             <?php else: ?>
                 <?php if ($selectedDate): ?>
@@ -378,11 +476,43 @@ include 'includes/navbar.php';
                         </div>
                     <?php endif; ?>
                     
+                    <!-- Show Declined Events -->
+                    <?php if (!empty($displayDeclinedRequests)): ?>
+                        <div class="declined-section mb-3">
+                            <h6 class="text-danger mb-2">
+                                <i class="fas fa-times-circle"></i> Declined Requests (<?= count($displayDeclinedRequests) ?>)
+                            </h6>
+                            <div id="declinedList">
+                            <?php foreach ($displayDeclinedRequests as $req): ?>
+                                <div class="request-list-item declined" 
+                                     data-status="declined"
+                                     onclick="viewRequest(<?= $req['id'] ?>)">
+                                    <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
+                                    <small class="text-muted">
+                                        <i class="fas fa-building"></i> <?= htmlspecialchars($req['organization']) ?><br>
+                                        <i class="fas fa-calendar"></i> <?= formatDate($req['event_date']) ?><br>
+                                        <i class="fas fa-clock"></i> <?= formatTime($req['event_time']) ?>
+                                        <?php if ($req['event_end_time']): ?>
+                                            - <?= formatTime($req['event_end_time']) ?>
+                                        <?php endif; ?><br>
+                                        <i class="fas fa-users"></i> <?= $req['volunteers_needed'] ?> volunteers
+                                    </small>
+                                    <div class="mt-2">
+                                        <span class="badge badge-danger">
+                                            <i class="fas fa-times-circle"></i> Declined
+                                        </span>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                    
                     <!-- Show Pending Requests -->
                     <?php if (!empty($displayRequests)): ?>
                         <div class="pending-section">
                             <h6 class="text-warning mb-2">
-                                <i class="fas fa-clock"></i> Pending Requests (<?= count($displayRequests) ?>)
+                                <i class="fas fa-clock"></i> Under Review (<?= count($displayRequests) ?>)
                             </h6>
                             <div id="requestsList">
                             <?php foreach ($displayRequests as $req): ?>
@@ -401,7 +531,7 @@ include 'includes/navbar.php';
                                     </small>
                                     <div class="mt-2">
                                         <span class="badge badge-warning">
-                                            <i class="fas fa-clock"></i> Pending Review
+                                            <i class="fas fa-clock"></i> Under Review
                                         </span>
                                     </div>
                                 </div>
@@ -410,11 +540,75 @@ include 'includes/navbar.php';
                         </div>
                     <?php endif; ?>
                     
+                <?php elseif ($showAllApproved): ?>
+                    <!-- Show ALL Approved -->
+                    <div class="approved-count-badge mb-3">
+                        <i class="fas fa-check-circle"></i> 
+                        <?= count($displayApprovedRequests) ?> approved event<?= count($displayApprovedRequests) != 1 ? 's' : '' ?>
+                        <span class="ms-2 badge bg-success">All Time</span>
+                    </div>
+                    
+                    <div id="approvedList">
+                    <?php foreach ($displayApprovedRequests as $req): ?>
+                        <div class="request-list-item approved" 
+                             data-status="approved"
+                             onclick="viewRequest(<?= $req['id'] ?>)">
+                            <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
+                            <small class="text-muted">
+                                <i class="fas fa-building"></i> <?= htmlspecialchars($req['organization']) ?><br>
+                                <i class="fas fa-calendar"></i> <?= formatDate($req['event_date']) ?><br>
+                                <i class="fas fa-clock"></i> <?= formatTime($req['event_time']) ?>
+                                <?php if ($req['event_end_time']): ?>
+                                    - <?= formatTime($req['event_end_time']) ?>
+                                <?php endif; ?><br>
+                                <i class="fas fa-users"></i> <?= $req['volunteers_needed'] ?> volunteers
+                            </small>
+                            <div class="mt-2">
+                                <span class="badge badge-success">
+                                    <i class="fas fa-check-circle"></i> Approved
+                                </span>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    </div>
+                    
+                <?php elseif ($showAllDeclined): ?>
+                    <!-- Show ALL Declined -->
+                    <div class="declined-count-badge mb-3">
+                        <i class="fas fa-times-circle"></i> 
+                        <?= count($displayDeclinedRequests) ?> declined request<?= count($displayDeclinedRequests) != 1 ? 's' : '' ?>
+                        <span class="ms-2 badge bg-danger">All Time</span>
+                    </div>
+                    
+                    <div id="declinedList">
+                    <?php foreach ($displayDeclinedRequests as $req): ?>
+                        <div class="request-list-item declined" 
+                             data-status="declined"
+                             onclick="viewRequest(<?= $req['id'] ?>)">
+                            <h6 class="mb-1"><?= htmlspecialchars($req['event_name']) ?></h6>
+                            <small class="text-muted">
+                                <i class="fas fa-building"></i> <?= htmlspecialchars($req['organization']) ?><br>
+                                <i class="fas fa-calendar"></i> <?= formatDate($req['event_date']) ?><br>
+                                <i class="fas fa-clock"></i> <?= formatTime($req['event_time']) ?>
+                                <?php if ($req['event_end_time']): ?>
+                                    - <?= formatTime($req['event_end_time']) ?>
+                                <?php endif; ?><br>
+                                <i class="fas fa-users"></i> <?= $req['volunteers_needed'] ?> volunteers
+                            </small>
+                            <div class="mt-2">
+                                <span class="badge badge-danger">
+                                    <i class="fas fa-times-circle"></i> Declined
+                                </span>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    </div>
+                    
                 <?php else: ?>
                     <!-- Show All Pending (No Date Selected OR Show All Mode) -->
                     <div class="pending-count-badge mb-3">
                         <i class="fas fa-exclamation-circle"></i> 
-                        <?= count($displayRequests) ?> pending request<?= count($displayRequests) > 1 ? 's' : '' ?>
+                        <?= count($displayRequests) ?> under review<?= count($displayRequests) > 1 ? 's' : '' ?>
                         <?php if ($showAllPending): ?>
                             <span class="ms-2 badge bg-warning text-dark">All Time</span>
                         <?php endif; ?>
@@ -437,7 +631,7 @@ include 'includes/navbar.php';
                             </small>
                             <div class="mt-2">
                                 <span class="badge badge-warning">
-                                    <i class="fas fa-clock"></i> Pending Review
+                                    <i class="fas fa-clock"></i> Under Review
                                 </span>
                             </div>
                         </div>
@@ -446,7 +640,7 @@ include 'includes/navbar.php';
                 <?php endif; ?>
             <?php endif; ?>
 
-            <?php if ($totalPending > 0): ?>
+            <?php if ($totalPending > 0 || $totalApproved > 0 || $totalDeclined > 0): ?>
             <div class="mt-4 pt-3 border-top">
                 <div class="d-grid">
                     <a href="history.php" class="btn btn-outline-primary">
@@ -469,49 +663,30 @@ include 'includes/navbar.php';
         overflow-y: auto;
     }
 
-    .calendar-legend {
-        display: flex;
-        gap: 15px;
-        flex-wrap: wrap;
-        padding: 10px;
-        background: #f8f9fa;
-        border-radius: 6px;
-    }
-
-    .legend-item {
-        display: flex;
-        align-items: center;
-        gap: 5px;
-        font-size: 0.875rem;
-    }
-
-    .legend-badge {
-        width: 20px;
-        height: 20px;
-        border-radius: 4px;
-        display: inline-block;
-        border: 2px solid;
-    }
-
-    .legend-approved {
-        background: #e8f5e9;
-        border-color: #2e7d32;
-    }
-
-    .legend-pending {
-        background: #fff3cd;
-        border-color: #ffc107;
-    }
-
-    .legend-today {
-        background: #fff5f5;
-        border-color: var(--evsu-maroon);
-    }
-
     .pending-count-badge {
         background: #fff3cd;
         border: 2px solid #ffc107;
         color: #856404;
+        padding: 10px 15px;
+        border-radius: 8px;
+        font-weight: 600;
+        text-align: center;
+    }
+    
+    .approved-count-badge {
+        background: #e8f5e9;
+        border: 2px solid #2e7d32;
+        color: #1b5e20;
+        padding: 10px 15px;
+        border-radius: 8px;
+        font-weight: 600;
+        text-align: center;
+    }
+    
+    .declined-count-badge {
+        background: #ffebee;
+        border: 2px solid #c62828;
+        color: #8e0000;
         padding: 10px 15px;
         border-radius: 8px;
         font-weight: 600;
@@ -561,9 +736,20 @@ include 'includes/navbar.php';
         box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
         border-left-color: #218838;
     }
+    
+    .request-list-item.declined {
+        border-left-color: #dc3545;
+        background: #fff5f5;
+    }
+
+    .request-list-item.declined:hover {
+        box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+        border-left-color: #c82333;
+    }
 
     .approved-section h6,
-    .pending-section h6 {
+    .pending-section h6,
+    .declined-section h6 {
         padding: 8px 12px;
         background: #f8f9fa;
         border-radius: 6px;
@@ -584,6 +770,26 @@ include 'includes/navbar.php';
         align-items: center;
         gap: 4px;
         box-shadow: 0 2px 4px rgba(255, 193, 7, 0.4);
+    }
+    
+    .declined-indicator {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: #dc3545;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        box-shadow: 0 2px 4px rgba(220, 53, 69, 0.4);
+    }
+    
+    .calendar-day.has-declined {
+        border-bottom: 4px solid #dc3545;
     }
 
     /* Make day numbers bigger and more prominent */
@@ -614,10 +820,6 @@ include 'includes/navbar.php';
             border-left: none;
             border-top: 1px solid #dee2e6;
         }
-
-        .calendar-legend {
-            font-size: 0.75rem;
-        }
     }
     
     /* Fix stats card links - remove blue underline */
@@ -634,6 +836,12 @@ include 'includes/navbar.php';
     
     .stats-card-clickable {
         cursor: pointer;
+    }
+    
+    .stats-card.active-filter {
+        border: 3px solid var(--evsu-gold);
+        box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+        transform: translateY(-5px);
     }
 </style>
 
