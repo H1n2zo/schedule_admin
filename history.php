@@ -16,7 +16,7 @@ $customJS = ['dashboard'];
 $db = getDB();
 
 // Pagination settings
-$itemsPerPage = 20;
+$itemsPerPage = 10;
 $currentPage = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
 $offset = ($currentPage - 1) * $itemsPerPage;
 

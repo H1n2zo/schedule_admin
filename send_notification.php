@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Send Notification - Direct Approve/Decline - FIXED
+ * Send Notification - Admin can attach NEW files to send
  * File: send_notification.php
  */
 
@@ -33,12 +33,12 @@ $pageTitle = ($action === 'approve' ? 'Approve' : 'Decline') . ' Event Request -
 $customCSS = ['forms'];
 $customJS = ['forms'];
 
-// Get attachments
-$stmt = $db->prepare("SELECT * FROM attachments WHERE request_id = ?");
-$stmt->execute([$requestId]);
-$attachments = $stmt->fetchAll();
+// Pre-fill email templates with end time
+$timeDisplay = formatTime($request['event_time']);
+if ($request['event_end_time']) {
+    $timeDisplay .= " - " . formatTime($request['event_end_time']);
+}
 
-// Pre-fill email templates
 if ($action === 'approve') {
     $defaultSubject = "✓ Event Request APPROVED - " . $request['event_name'];
     $defaultBody = "Dear " . $request['requester_name'] . ",\n\n";
@@ -47,7 +47,7 @@ if ($action === 'approve') {
     $defaultBody .= "- Event Name: " . $request['event_name'] . "\n";
     $defaultBody .= "- Organization: " . $request['organization'] . "\n";
     $defaultBody .= "- Date: " . formatDate($request['event_date']) . "\n";
-    $defaultBody .= "- Time: " . formatTime($request['event_time']) . "\n";
+    $defaultBody .= "- Time: " . $timeDisplay . "\n";
     $defaultBody .= "- Volunteers Needed: " . $request['volunteers_needed'] . "\n\n";
     $defaultBody .= "You can now proceed with your event preparations. Our team will contact you soon regarding volunteer assignments.\n\n";
     $defaultBody .= "Best regards,\n";
@@ -59,7 +59,8 @@ if ($action === 'approve') {
     $defaultBody .= "Event Details:\n";
     $defaultBody .= "- Event Name: " . $request['event_name'] . "\n";
     $defaultBody .= "- Organization: " . $request['organization'] . "\n";
-    $defaultBody .= "- Requested Date: " . formatDate($request['event_date']) . "\n\n";
+    $defaultBody .= "- Requested Date: " . formatDate($request['event_date']) . "\n";
+    $defaultBody .= "- Requested Time: " . $timeDisplay . "\n\n";
     $defaultBody .= "Reason: [Please specify the reason for declining]\n\n";
     $defaultBody .= "If you have any questions or would like to discuss this decision, please contact us.\n\n";
     $defaultBody .= "Best regards,\n";
@@ -69,8 +70,13 @@ if ($action === 'approve') {
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $subject = sanitizeInput($_POST['subject']);
-    $body = $_POST['body']; // Don't sanitize too much, preserve formatting
-    $includeAttachments = isset($_POST['include_attachments']) ? 1 : 0;
+    $body = $_POST['body'];
+    $hasAttachments = 0;
+    
+    // Check if admin uploaded new files
+    if (isset($_FILES['admin_attachments']) && !empty($_FILES['admin_attachments']['name'][0])) {
+        $hasAttachments = 1;
+    }
     
     try {
         // Start transaction
@@ -87,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ");
         $stmt->execute([$newStatus, $_SESSION['user_id'], $requestId]);
         
-        // FIXED: Save to notification_history table
+        // Save to notification_history table
         $stmt = $db->prepare("
             INSERT INTO notification_history 
             (request_id, action_type, admin_id, recipient_email, subject, body, attachments_sent, sent_at) 
@@ -100,15 +106,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $request['requester_email'],
             $subject,
             $body,
-            $includeAttachments
+            $hasAttachments
         ]);
+        
+        // Handle admin's new file uploads (if any)
+        if ($hasAttachments) {
+            $uploadDir = UPLOAD_DIR . 'notifications/';
+            if (!file_exists($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+            
+            foreach ($_FILES['admin_attachments']['tmp_name'] as $key => $tmpName) {
+                if ($_FILES['admin_attachments']['error'][$key] === UPLOAD_ERR_OK) {
+                    $fileName = basename($_FILES['admin_attachments']['name'][$key]);
+                    $fileSize = $_FILES['admin_attachments']['size'][$key];
+                    $fileType = $_FILES['admin_attachments']['type'][$key];
+                    
+                    // Generate unique filename
+                    $uniqueName = time() . '_' . $fileName;
+                    $filePath = $uploadDir . $uniqueName;
+                    
+                    if ($fileSize <= MAX_FILE_SIZE) {
+                        move_uploaded_file($tmpName, $filePath);
+                        // Note: These are temporary files just for email, not saved to attachments table
+                    }
+                }
+            }
+        }
         
         // Log in audit_log
         $stmt = $db->prepare("
             INSERT INTO audit_log (request_id, admin_id, action, notes, email_sent) 
             VALUES (?, ?, ?, ?, 1)
         ");
-        $actionType = $action === 'approve' ? 'approved' : 'disapproved';
+        $actionType = $action === 'approve' ? 'approved' : 'declined';
         $stmt->execute([
             $requestId, 
             $_SESSION['user_id'], 
@@ -119,13 +150,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Commit transaction
         $db->commit();
         
-        // In production, send actual email here using PHPMailer
-        // If $includeAttachments is true, attach the files
+        // In production: Send actual email here using PHPMailer with admin's attachments
         
         header('Location: dashboard.php?notification_sent=1&action=' . $action);
         exit;
         
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
         // Rollback on error
         $db->rollBack();
         $error = "Failed to process request: " . $e->getMessage();
@@ -173,20 +203,7 @@ include 'includes/navbar.php';
                 <?= htmlspecialchars($request['organization']) ?>
             </div>
             
-            <?php if (!empty($attachments)): ?>
-            <div class="alert alert-info">
-                <h6><i class="fas fa-paperclip"></i> Request Attachments (<?= count($attachments) ?>)</h6>
-                <ul class="mb-0">
-                    <?php foreach ($attachments as $file): ?>
-                        <li><?= htmlspecialchars($file['file_name']) ?> 
-                            (<?= number_format($file['file_size'] / 1024, 2) ?> KB)
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            </div>
-            <?php endif; ?>
-            
-            <form method="POST" data-warn-unsaved="true">
+            <form method="POST" enctype="multipart/form-data" data-warn-unsaved="true">
                 <div class="email-field">
                     <label>Subject <span class="required">*</span></label>
                     <input type="text" name="subject" class="form-control" 
@@ -201,19 +218,28 @@ include 'includes/navbar.php';
                     </small>
                 </div>
                 
-                <?php if (!empty($attachments)): ?>
-                <div class="email-field">
-                    <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="includeAttachments" 
-                               name="include_attachments" value="1" checked>
-                        <label class="form-check-label" for="includeAttachments">
-                            <i class="fas fa-paperclip"></i> Include attachments from the request in this email
-                        </label>
+                <!-- Admin Attachment Upload Section -->
+                <div class="admin-attachments-section">
+                    <h6>
+                        <i class="fas fa-paperclip"></i> Attach Files to Send 
+                        <span class="badge bg-secondary">Optional</span>
+                    </h6>
+                    <p class="text-muted mb-3">
+                        Upload documents to send along with this notification (guidelines, forms, schedules, etc.)
+                    </p>
+                    
+                    <div class="file-upload-area" onclick="document.getElementById('adminFileInput').click()">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h5>Click to Upload Files</h5>
+                        <p>PDF, DOC, DOCX, JPG, PNG (Max 5MB per file)</p>
                     </div>
+                    <input type="file" id="adminFileInput" name="admin_attachments[]" 
+                           class="d-none" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                           onchange="displayAdminFiles(this)">
+                    <div id="adminFileList" class="mt-2"></div>
                 </div>
-                <?php endif; ?>
                 
-                <div class="d-flex justify-content-between flex-wrap gap-2">
+                <div class="d-flex justify-content-between flex-wrap gap-2 mt-4">
                     <a href="view_request.php?id=<?= $requestId ?>" class="btn btn-secondary">
                         <i class="fas fa-times"></i> Cancel
                     </a>
@@ -262,9 +288,10 @@ include 'includes/navbar.php';
     .email-field input,
     .email-field textarea {
         width: 100%;
-        padding: 10px;
+        padding: 12px;
         border: 2px solid #dee2e6;
         border-radius: 6px;
+        font-size: 1rem;
     }
     
     .email-field input:focus,
@@ -277,6 +304,7 @@ include 'includes/navbar.php';
     .email-field textarea {
         min-height: 300px;
         font-family: 'Courier New', monospace;
+        line-height: 1.6;
     }
     
     .recipient-info {
@@ -285,6 +313,7 @@ include 'includes/navbar.php';
         border-radius: 6px;
         margin-bottom: 20px;
         border: 1px solid var(--gold-dark);
+        line-height: 1.8;
     }
     
     .action-badge {
@@ -308,6 +337,74 @@ include 'includes/navbar.php';
         border: 2px solid #c62828;
     }
     
+    .admin-attachments-section {
+        background: #f8f9fa;
+        border: 2px dashed #dee2e6;
+        border-radius: 8px;
+        padding: 25px;
+        margin-bottom: 20px;
+    }
+    
+    .admin-attachments-section h6 {
+        color: var(--evsu-maroon);
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    
+    .file-upload-area {
+        border: 3px dashed #dee2e6;
+        border-radius: 10px;
+        padding: 40px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: white;
+    }
+    
+    .file-upload-area:hover {
+        border-color: var(--evsu-gold);
+        background: #fffbf0;
+        transform: translateY(-2px);
+    }
+    
+    .file-upload-area i {
+        font-size: 3rem;
+        color: var(--evsu-gold);
+        margin-bottom: 15px;
+        display: block;
+    }
+    
+    .file-upload-area h5 {
+        color: var(--evsu-maroon);
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+    
+    .file-upload-area p {
+        color: #6c757d;
+        margin: 0;
+    }
+    
+    #adminFileList {
+        margin-top: 15px;
+    }
+    
+    #adminFileList > div {
+        padding: 12px;
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    #adminFileList i {
+        color: var(--evsu-gold);
+        font-size: 1.2rem;
+    }
+    
     @media (max-width: 768px) {
         .email-composer {
             margin: 20px;
@@ -325,8 +422,45 @@ include 'includes/navbar.php';
         .d-flex.flex-wrap .btn {
             width: 100%;
         }
+        
+        .file-upload-area {
+            padding: 30px 20px;
+        }
     }
 </style>
+
+<script>
+function displayAdminFiles(input) {
+    const fileList = document.getElementById('adminFileList');
+    fileList.innerHTML = '';
+    
+    if (input.files.length > 0) {
+        fileList.innerHTML = '<div class="alert alert-success mb-2"><strong><i class="fas fa-check-circle"></i> Files Ready to Send:</strong></div>';
+        
+        Array.from(input.files).forEach(file => {
+            const fileItem = document.createElement('div');
+            
+            const fileSize = (file.size / 1024).toFixed(2);
+            const fileIcon = getFileIcon(file.type);
+            
+            fileItem.innerHTML = `
+                <i class="fas fa-${fileIcon}"></i> 
+                <strong>${file.name}</strong>
+                <span class="text-muted ms-auto">(${fileSize} KB)</span>
+            `;
+            
+            fileList.appendChild(fileItem);
+        });
+    }
+}
+
+function getFileIcon(fileType) {
+    if (fileType.includes('pdf')) return 'file-pdf';
+    if (fileType.includes('word') || fileType.includes('document')) return 'file-word';
+    if (fileType.includes('image')) return 'file-image';
+    return 'file';
+}
+</script>
 
 <?php
 // Include footer
