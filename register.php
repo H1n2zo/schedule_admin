@@ -9,7 +9,7 @@ require_once 'config.php';
 
 // Set page configuration
 $pageTitle = 'Register - EVSU Admin Panel';
-$bodyClass = 'auth-page';
+$bodyClass = 'auth-page scrollable-page';
 $customCSS = ['auth'];
 
 $error = '';
@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include 'includes/header.php';
 ?>
 
-<div class="login-container">
+<div class="login-container landscape-form">
     <?php if ($success): ?>
         <!-- Success Message -->
         <div class="success-container text-center">
@@ -106,46 +106,50 @@ include 'includes/header.php';
         </div>
         
         <form method="POST" data-warn-unsaved="false">
-            <div class="mb-3">
-                <label class="form-label">Full Name <span class="required">*</span></label>
-                <input type="text" name="full_name" class="form-control" required autofocus 
-                       placeholder="Juan Dela Cruz" 
-                       value="<?= isset($_POST['full_name']) ? htmlspecialchars($_POST['full_name']) : '' ?>">
-                <small class="text-muted">Enter your complete name as it will appear in the system</small>
+            <div class="form-grid">
+                <div class="mb-3">
+                    <label class="form-label">Full Name <span class="required">*</span></label>
+                    <input type="text" name="full_name" class="form-control" required autofocus 
+                           placeholder="Juan Dela Cruz" 
+                           value="<?= isset($_POST['full_name']) ? htmlspecialchars($_POST['full_name']) : '' ?>">
+                    <small class="text-muted">Enter your complete name</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Email Address <span class="required">*</span></label>
+                    <input type="email" name="email" class="form-control" required 
+                           placeholder="admin@evsu.edu.ph" 
+                           value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>">
+                    <small class="text-muted">Use your official EVSU email</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Password <span class="required">*</span></label>
+                    <input type="password" name="password" class="form-control" required 
+                           placeholder="Enter password" id="password" minlength="6">
+                    <small class="text-muted" id="strengthIndicator">Minimum 6 characters</small>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Confirm Password <span class="required">*</span></label>
+                    <input type="password" name="confirm_password" class="form-control" required 
+                           placeholder="Re-enter password" id="confirmPassword" minlength="6">
+                    <small class="text-muted" id="passwordMatch"></small>
+                </div>
+                
+                <div class="form-check mb-3 full-width">
+                    <input type="checkbox" class="form-check-input" id="agreeTerms" required>
+                    <label class="form-check-label" for="agreeTerms">
+                        I agree to use this account responsibly and according to EVSU policies
+                    </label>
+                </div>
+                
+                <div class="full-width">
+                    <button type="submit" class="btn btn-primary w-100" id="submitBtn">
+                        <i class="fas fa-user-plus"></i> Create Administrator Account
+                    </button>
+                </div>
             </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Email Address <span class="required">*</span></label>
-                <input type="email" name="email" class="form-control" required 
-                       placeholder="admin@evsu.edu.ph" 
-                       value="<?= isset($_POST['email']) ? htmlspecialchars($_POST['email']) : '' ?>">
-                <small class="text-muted">Use your official EVSU email address</small>
-            </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Password <span class="required">*</span></label>
-                <input type="password" name="password" class="form-control" required 
-                       placeholder="Enter password" id="password" minlength="6">
-                <small class="text-muted">Minimum 6 characters</small>
-            </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Confirm Password <span class="required">*</span></label>
-                <input type="password" name="confirm_password" class="form-control" required 
-                       placeholder="Re-enter password" id="confirmPassword" minlength="6">
-                <small class="text-muted" id="passwordMatch"></small>
-            </div>
-            
-            <div class="form-check mb-3">
-                <input type="checkbox" class="form-check-input" id="agreeTerms" required>
-                <label class="form-check-label" for="agreeTerms">
-                    I agree to use this account responsibly and according to EVSU policies
-                </label>
-            </div>
-            
-            <button type="submit" class="btn btn-primary w-100" id="submitBtn">
-                <i class="fas fa-user-plus"></i> Create Administrator Account
-            </button>
         </form>
         
         <div class="back-link">
@@ -161,8 +165,49 @@ include 'includes/header.php';
 </div>
 
 <style>
+/* ============================================
+   Scrollable Page Body
+   ============================================ */
+body.auth-page.scrollable-page {
+    min-height: 100vh;
+    height: auto;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    align-items: flex-start;
+    padding: 40px 20px;
+}
+
+/* ============================================
+   Login Container - NO INTERNAL SCROLL
+   ============================================ */
 .login-container {
-    max-width: 500px;
+    background: white;
+    padding: 40px;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(128, 0, 0, 0.3);
+    max-width: 450px;
+    width: 100%;
+    border-top: 5px solid var(--evsu-gold);
+    position: relative;
+    z-index: 1;
+    animation: slideInDown 0.5s ease;
+}
+
+/* Landscape form - WIDER, PAGE SCROLLS */
+.login-container.landscape-form {
+    max-width: 900px;
+    max-height: none !important;
+    overflow: visible !important;
+}
+
+.landscape-form .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.landscape-form .form-grid .full-width {
+    grid-column: 1 / -1;
 }
 
 .success-container {
@@ -218,6 +263,39 @@ include 'includes/header.php';
     border-color: var(--evsu-gold);
     box-shadow: 0 0 0 0.2rem rgba(255, 215, 0, 0.25);
 }
+
+/* ============================================
+   Responsive
+   ============================================ */
+@media (max-width: 768px) {
+    body.auth-page.scrollable-page {
+        padding: 30px 15px;
+    }
+    
+    .landscape-form .form-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .landscape-form .form-grid .full-width {
+        grid-column: 1;
+    }
+    
+    .login-container.landscape-form {
+        max-width: 100%;
+        padding: 30px 20px;
+    }
+}
+
+@media (max-width: 576px) {
+    body.auth-page.scrollable-page {
+        padding: 20px 10px;
+    }
+    
+    .login-container {
+        padding: 25px 15px;
+    }
+}
 </style>
 
 <script>
@@ -227,11 +305,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const passwordMatch = document.getElementById('passwordMatch');
     const submitBtn = document.getElementById('submitBtn');
     const agreeTerms = document.getElementById('agreeTerms');
+    const strengthIndicator = document.getElementById('strengthIndicator');
     
     function checkPasswordMatch() {
         if (confirmPassword.value === '') {
             passwordMatch.textContent = '';
-            passwordMatch.className = '';
+            passwordMatch.className = 'text-muted';
             return;
         }
         
@@ -261,6 +340,23 @@ document.addEventListener('DOMContentLoaded', function() {
     password.addEventListener('input', function() {
         checkPasswordMatch();
         updateSubmitButton();
+        
+        // Show password strength
+        const length = this.value.length;
+        let strength = '';
+        
+        if (length === 0) {
+            strengthIndicator.innerHTML = 'Minimum 6 characters';
+            strengthIndicator.className = 'text-muted';
+        } else if (length < 6) {
+            strengthIndicator.innerHTML = 'Password strength: <span class="text-danger">Too short</span>';
+        } else if (length < 8) {
+            strengthIndicator.innerHTML = 'Password strength: <span class="text-warning">Fair</span>';
+        } else if (length < 12) {
+            strengthIndicator.innerHTML = 'Password strength: <span class="text-info">Good</span>';
+        } else {
+            strengthIndicator.innerHTML = 'Password strength: <span class="text-success">Strong</span>';
+        }
     });
     
     confirmPassword.addEventListener('input', function() {
@@ -269,29 +365,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     agreeTerms.addEventListener('change', updateSubmitButton);
-    
-    // Show password strength
-    password.addEventListener('input', function() {
-        const length = this.value.length;
-        let strength = '';
-        
-        if (length === 0) {
-            strength = '';
-        } else if (length < 6) {
-            strength = '<span class="text-danger">Too short</span>';
-        } else if (length < 8) {
-            strength = '<span class="text-warning">Fair</span>';
-        } else if (length < 12) {
-            strength = '<span class="text-info">Good</span>';
-        } else {
-            strength = '<span class="text-success">Strong</span>';
-        }
-        
-        const strengthDiv = this.nextElementSibling;
-        if (strength) {
-            strengthDiv.innerHTML = 'Password strength: ' + strength;
-        }
-    });
     
     // Initial check
     updateSubmitButton();
