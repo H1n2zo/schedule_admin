@@ -1,37 +1,51 @@
 <?php
 /**
- * CRCY Dispatch - Simple Admin Login
- * Hardcoded admin credentials for simplicity
+ * CRCY Dispatch - Admin Login
+ * Updated with multi-admin support and enhanced security
  */
 
 require_once 'config.php';
 
-$pageTitle = 'CRCY Admin Login - CRCY Dispatch';
+// Redirect if already logged in
+if (isLoggedIn()) {
+    header('Location: dashboard.php');
+    exit;
+}
+
+$pageTitle = 'Admin Login - CRCY Dispatch';
 $bodyClass = 'auth-page';
 $customCSS = ['auth'];
 
 $error = '';
+$success = '';
+
+// Check for success message from registration
+if (isset($_SESSION['registration_success'])) {
+    $success = $_SESSION['registration_success'];
+    unset($_SESSION['registration_success']);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $clientIP = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+    $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
     // Rate limiting for login attempts
     if (!checkRateLimit($clientIP . '_login', 5, 900)) { // 5 attempts per 15 minutes
         $error = 'Too many failed login attempts. Please try again in 15 minutes.';
-        logSecurityEvent('login_rate_limit_exceeded', ['ip' => $clientIP]);
+        logSecurityEvent('login_rate_limit_exceeded', ['ip' => $clientIP, 'username' => $username]);
     } else {
         try {
             $db = getDB();
 
-            // Get the single admin user from database
+            // Get admin user by username or email
             $stmt = $db->prepare("
-                SELECT id, password_hash, full_name, 
+                SELECT id, username, email, password_hash, full_name, role, status,
                        failed_login_attempts, locked_until 
                 FROM admin_users 
-                WHERE id = 1
+                WHERE (username = ? OR email = ?) AND status != 'suspended'
             ");
-            $stmt->execute();
+            $stmt->execute([$username, $username]);
             $admin = $stmt->fetch();
 
             if ($admin) {
@@ -41,7 +55,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $error = "Account is locked. Try again in $lockoutMinutes minutes.";
                     logSecurityEvent('login_account_locked', [
                         'ip' => $clientIP,
+                        'username' => $username,
                         'locked_until' => $admin['locked_until']
+                    ]);
+                } elseif ($admin['status'] === 'inactive') {
+                    $error = 'Account is inactive. Please contact the system administrator.';
+                    logSecurityEvent('login_inactive_account', [
+                        'ip' => $clientIP,
+                        'username' => $username
                     ]);
                 } else {
                     // Verify password
@@ -52,9 +73,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             SET failed_login_attempts = 0, 
                                 locked_until = NULL, 
                                 last_login = NOW() 
-                            WHERE id = 1
+                            WHERE id = ?
                         ");
-                        $stmt->execute();
+                        $stmt->execute([$admin['id']]);
+
+                        // Log admin activity
+                        $stmt = $db->prepare("
+                            INSERT INTO admin_activity_log (admin_id, action, description, ip_address, user_agent)
+                            VALUES (?, 'login', 'Admin logged in successfully', ?, ?)
+                        ");
+                        $stmt->execute([
+                            $admin['id'],
+                            $clientIP,
+                            $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+                        ]);
 
                         // Reset rate limit on successful login
                         $rateLimitFile = sys_get_temp_dir() . '/crcy_rate_limit_' . md5($clientIP . '_login');
@@ -62,17 +94,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             unlink($rateLimitFile);
                         }
 
-                        // Set session for admin
-                        $_SESSION['user_id'] = 1;
-                        $_SESSION['email'] = 'admin@evsu.edu.ph';
+                        // Set session
+                        $_SESSION['user_id'] = $admin['id'];
+                        $_SESSION['username'] = $admin['username'];
+                        $_SESSION['email'] = $admin['email'];
                         $_SESSION['full_name'] = $admin['full_name'];
-                        $_SESSION['role'] = 'admin';
+                        $_SESSION['role'] = $admin['role'];
                         $_SESSION['login_time'] = time();
 
                         // Log successful login
                         logSecurityEvent('admin_login_success', [
                             'ip' => $clientIP,
-                            'admin_id' => 1
+                            'admin_id' => $admin['id'],
+                            'username' => $admin['username']
                         ]);
 
                         header('Location: dashboard.php');
@@ -90,9 +124,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt = $db->prepare("
                             UPDATE admin_users 
                             SET failed_login_attempts = ?, locked_until = ? 
-                            WHERE id = 1
+                            WHERE id = ?
                         ");
-                        $stmt->execute([$newFailedAttempts, $lockoutTime]);
+                        $stmt->execute([$newFailedAttempts, $lockoutTime, $admin['id']]);
 
                         // Record failed attempt for rate limiting
                         recordRateLimitAttempt($clientIP . '_login');
@@ -100,6 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Log failed login
                         logSecurityEvent('admin_login_failed', [
                             'ip' => $clientIP,
+                            'username' => $username,
                             'failed_attempts' => $newFailedAttempts,
                             'account_locked' => $lockoutTime ? true : false
                         ]);
@@ -108,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $error = 'Too many failed attempts. Account locked for 15 minutes.';
                         } else {
                             $remaining = 5 - $newFailedAttempts;
-                            $error = "Invalid password. $remaining attempts remaining.";
+                            $error = "Invalid credentials. $remaining attempts remaining.";
                         }
                     }
                 }
@@ -119,14 +154,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Log failed login attempt
                 logSecurityEvent('admin_login_failed', [
                     'ip' => $clientIP,
-                    'reason' => 'admin_not_found'
+                    'username' => $username,
+                    'reason' => 'user_not_found'
                 ]);
 
-                $error = 'Admin account not found. Please check database setup.';
+                $error = 'Invalid username or password.';
             }
         } catch (Exception $e) {
             logSecurityEvent('login_error', [
                 'ip' => $clientIP,
+                'username' => $username,
                 'error' => $e->getMessage()
             ]);
             $error = 'Login system error. Please try again.';
@@ -150,6 +187,13 @@ include 'includes/header.php';
 
     <!-- Login Form -->
     <div class="login-form-wrapper">
+        <?php if ($success): ?>
+            <div class="alert alert-success modern-alert">
+                <i class="fas fa-check-circle"></i>
+                <span><?= htmlspecialchars($success) ?></span>
+            </div>
+        <?php endif; ?>
+
         <?php if ($error): ?>
             <div class="alert alert-danger modern-alert">
                 <i class="fas fa-exclamation-triangle"></i>
@@ -160,12 +204,24 @@ include 'includes/header.php';
         <form method="POST" data-warn-unsaved="false" class="modern-form">
             <div class="form-group">
                 <label class="form-label">
-                    <i class="fas fa-lock"></i>
-                    Administrator Password
+                    <i class="fas fa-user"></i>
+                    Username or Email
                 </label>
                 <div class="input-wrapper">
-                    <input type="password" name="password" class="form-control modern-input" required autofocus
-                        placeholder="Enter admin password">
+                    <input type="text" name="username" class="form-control modern-input" required autofocus
+                        placeholder="Enter username or email" value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">
+                    <div class="input-focus-line"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">
+                    <i class="fas fa-lock"></i>
+                    Password
+                </label>
+                <div class="input-wrapper">
+                    <input type="password" name="password" class="form-control modern-input" required
+                        placeholder="Enter password">
                     <div class="input-focus-line"></div>
                 </div>
             </div>
@@ -173,19 +229,24 @@ include 'includes/header.php';
             <button type="submit" class="btn modern-btn-primary">
                 <span class="btn-content">
                     <i class="fas fa-sign-in-alt"></i>
-                    Access Admin Dashboard
+                    Sign In to Dashboard
                 </span>
                 <div class="btn-ripple"></div>
             </button>
         </form>
 
-
+        <div class="login-help">
+            <p class="text-center text-muted small mt-3">
+                <i class="fas fa-shield-alt me-1"></i>
+                Secure admin access with session monitoring
+            </p>
+        </div>
     </div>
 
     <!-- Footer -->
     <div class="login-footer">
         <a href="index.php" class="back-home-link">
-            Return to Public Portal
+            <i class="fas fa-arrow-left me-1"></i> Return to Public Portal
         </a>
     </div>
 </div>
@@ -210,14 +271,12 @@ include 'includes/header.php';
             opacity: 0;
             transform: translateY(40px) scale(0.95);
         }
-
         to {
             opacity: 1;
             transform: translateY(0) scale(1);
         }
     }
 
-    /* Brand Section */
     .login-brand {
         background: linear-gradient(135deg, var(--evsu-maroon) 0%, #6B0000 100%);
         color: white;
@@ -257,13 +316,6 @@ include 'includes/header.php';
         color: white;
     }
 
-    .brand-text {
-        font-size: 1.8rem;
-        font-weight: 900;
-        color: white;
-        letter-spacing: 2px;
-    }
-
     .login-brand h1 {
         font-size: 1.8rem;
         font-weight: 900;
@@ -292,7 +344,6 @@ include 'includes/header.php';
         z-index: 1;
     }
 
-    /* Form Section */
     .login-form-wrapper {
         padding: 40px 30px 30px;
     }
@@ -308,6 +359,12 @@ include 'includes/header.php';
         align-items: center;
         gap: 12px;
         font-size: 0.9rem;
+    }
+
+    .modern-alert.alert-success {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
     }
 
     .modern-alert i {
@@ -361,7 +418,7 @@ include 'includes/header.php';
         transition: width 0.3s ease;
     }
 
-    .modern-input:focus+.input-focus-line {
+    .modern-input:focus + .input-focus-line {
         width: 100%;
     }
 
@@ -383,10 +440,6 @@ include 'includes/header.php';
     .modern-btn-primary:hover {
         transform: translateY(-3px);
         box-shadow: 0 8px 25px rgba(139, 0, 0, 0.3);
-    }
-
-    .modern-btn-primary:hover .btn-content {
-        color: white;
     }
 
     .btn-content {
@@ -413,21 +466,10 @@ include 'includes/header.php';
         transform: scale(1);
     }
 
-    /* Security Notice */
-    .security-notice {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        background: #f8f9fa;
-        padding: 15px 20px;
-        border-radius: 10px;
-        margin-top: 25px;
-        font-size: 0.85rem;
-        color: #6c757d;
-        border-left: 4px solid var(--evsu-gold);
+    .login-help {
+        margin-top: 20px;
     }
 
-    /* Footer */
     .login-footer {
         padding: 20px 30px;
         background: #f8f9fa;
@@ -451,7 +493,6 @@ include 'includes/header.php';
         transform: translateX(-3px);
     }
 
-    /* Responsive */
     @media (max-width: 576px) {
         .modern-login-container {
             margin: 20px;
