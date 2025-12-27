@@ -41,15 +41,7 @@
         });
     }
 
-    // ============================================
-    // Admin Shortcut (Ctrl+Shift+A to login page)
-    // ============================================
-    document.addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.shiftKey && (e.key === 'A' || e.key === 'a')) {
-            e.preventDefault();
-            window.location.href = 'login.php';
-        }
-    });
+
 
     // ============================================
     // Form Change Detection
@@ -107,30 +99,7 @@
         });
     };
 
-    // ============================================
-    // Show/Hide Back to Top Button
-    // ============================================
-    const backToTopBtn = document.getElementById('backToTop');
-    if (backToTopBtn) {
-        window.addEventListener('scroll', function() {
-            if (window.pageYOffset > 300) {
-                backToTopBtn.style.display = 'block';
-            } else {
-                backToTopBtn.style.display = 'none';
-            }
-        });
 
-        backToTopBtn.addEventListener('click', function() {
-            scrollToTop();
-        });
-    }
-
-    // ============================================
-    // Confirm Before Delete
-    // ============================================
-    window.confirmDelete = function(itemName) {
-        return confirm(`Are you sure you want to delete "${itemName}"? This action cannot be undone.`);
-    };
 
     // ============================================
     // Format Date Helper
@@ -257,44 +226,8 @@
         };
     };
 
-    // ============================================
-    // Local Storage Helpers
-    // ============================================
-    window.setStorage = function(key, value) {
-        try {
-            localStorage.setItem(key, JSON.stringify(value));
-            return true;
-        } catch (e) {
-            console.error('Error saving to localStorage:', e);
-            return false;
-        }
-    };
 
-    window.getStorage = function(key) {
-        try {
-            const item = localStorage.getItem(key);
-            return item ? JSON.parse(item) : null;
-        } catch (e) {
-            console.error('Error reading from localStorage:', e);
-            return null;
-        }
-    };
 
-    window.removeStorage = function(key) {
-        try {
-            localStorage.removeItem(key);
-            return true;
-        } catch (e) {
-            console.error('Error removing from localStorage:', e);
-            return false;
-        }
-    };
 
-    // ============================================
-    // Console Welcome Message
-    // ============================================
-    console.log('%cEVSU Event Management System', 'color: #800000; font-size: 20px; font-weight: bold;');
-    console.log('%cDeveloped for Eastern Visayas State University', 'color: #FFD700; font-size: 12px;');
-    console.log('%c⚠️ Warning: Using this console may allow attackers to impersonate you and steal your information. Do not enter or paste code that you do not understand.', 'color: #dc3545; font-size: 14px; font-weight: bold;');
 
 })();

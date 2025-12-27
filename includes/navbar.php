@@ -1,7 +1,7 @@
 <?php
 /**
  * EVSU Event Management System
- * Common Navigation Bar - Updated
+ * Common Navigation Bar - Updated with Statistics Link
  * File: includes/navbar.php
  */
 
@@ -32,6 +32,13 @@ $currentPage = basename($_SERVER['PHP_SELF']);
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto align-items-center">
                 <?php if ($isLoggedIn && $isAdmin): ?>   
+                    <!-- Statistics Link -->
+                    <li class="nav-item">
+                        <a href="statistics.php" class="btn btn-warning btn-sm me-2">
+                            <i class="fas fa-chart-line"></i> Statistics
+                        </a>
+                    </li>
+                    
                     <!-- History Link -->
                     <li class="nav-item">
                         <a href="history.php" class="btn btn-info btn-sm me-2">
