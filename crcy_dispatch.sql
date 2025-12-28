@@ -74,7 +74,7 @@ CREATE TABLE attachments (
 -- Insert default admin user
 -- Password: admin123 
 INSERT INTO admin_users (password_hash, full_name) VALUES
-('$2y$10$8K1p/a0dhrxSM4KRRL/VWOIhyT08Q/GvVzjuBkkUfRz6A0D3R.WrW', 'CRCY Administrator');
+('$2a$12$xHQXHjR3QJ.ql/rKrJN66eH/t0J0BEouEAVkarOvzJwAgnQr5qtnC', 'CRCY Administrator');
 
 -- Verify setup
 SELECT 'CRCY Dispatch Database Setup Complete!' as status;
