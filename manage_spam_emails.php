@@ -7,13 +7,14 @@
 require_once 'config.php';
 require_once 'spam_email_functions.php';
 
-session_start();
-
-// Check if user is admin
+// Check if user is admin (session already started in config.php)
 if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'admin') {
     header('Location: login.php');
     exit;
 }
+
+// Get database connection
+$db = getDB();
 
 $message = '';
 $message_type = 'info';

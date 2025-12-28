@@ -1,7 +1,8 @@
 <?php
 /**
  * Spam Email Management for Support Requests
- * Block specific emails from submitting support requests
+ * Block specific emails from submitting requests
+ * PDO Version
  */
 
 /**
@@ -10,11 +11,9 @@
 function isSpamEmail($db, $email) {
     $sql = "SELECT is_spam FROM spam_emails WHERE email = ? AND is_spam = TRUE";
     $stmt = $db->prepare($sql);
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    $stmt->execute([$email]);
     
-    return $result->num_rows > 0;
+    return $stmt->rowCount() > 0;
 }
 
 /**
@@ -32,9 +31,8 @@ function markEmailAsSpam($db, $email, $reason, $marked_by_admin_id) {
                 spam_reason = ?";
         
         $stmt = $db->prepare($sql);
-        $stmt->bind_param("sisss", $email, $marked_by_admin_id, $reason, $marked_by_admin_id, $reason);
         
-        if ($stmt->execute()) {
+        if ($stmt->execute([$email, $marked_by_admin_id, $reason, $marked_by_admin_id, $reason])) {
             // Log the action
             logSpamEmailAction($db, $email, 'marked_spam', $reason, $marked_by_admin_id);
             
@@ -43,8 +41,7 @@ function markEmailAsSpam($db, $email, $reason, $marked_by_admin_id) {
                           SET is_spam_request = TRUE, spam_checked_at = NOW()
                           WHERE requester_email = ?";
             $update_stmt = $db->prepare($update_sql);
-            $update_stmt->bind_param("s", $email);
-            $update_stmt->execute();
+            $update_stmt->execute([$email]);
             
             return ['success' => true, 'message' => 'Email marked as spam'];
         }
@@ -70,9 +67,8 @@ function markEmailAsGenuine($db, $email, $marked_by_admin_id) {
                 WHERE email = ?";
         
         $stmt = $db->prepare($sql);
-        $stmt->bind_param("is", $marked_by_admin_id, $email);
         
-        if ($stmt->execute()) {
+        if ($stmt->execute([$marked_by_admin_id, $email])) {
             // Log the action
             logSpamEmailAction($db, $email, 'unmarked_spam', 'Marked as genuine', $marked_by_admin_id);
             
@@ -81,8 +77,7 @@ function markEmailAsGenuine($db, $email, $marked_by_admin_id) {
                           SET is_spam_request = FALSE, spam_checked_at = NOW()
                           WHERE requester_email = ?";
             $update_stmt = $db->prepare($update_sql);
-            $update_stmt->bind_param("s", $email);
-            $update_stmt->execute();
+            $update_stmt->execute([$email]);
             
             return ['success' => true, 'message' => 'Email marked as genuine'];
         }
@@ -122,8 +117,8 @@ function getSpamEmails($db) {
             WHERE is_spam = TRUE 
             ORDER BY spam_marked_at DESC";
     
-    $result = $db->query($sql);
-    return $result->fetch_all(MYSQLI_ASSOC);
+    $stmt = $db->query($sql);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 /**
@@ -134,8 +129,8 @@ function getGenuineEmails($db) {
             WHERE is_spam = FALSE 
             ORDER BY spam_marked_at DESC";
     
-    $result = $db->query($sql);
-    return $result->fetch_all(MYSQLI_ASSOC);
+    $stmt = $db->query($sql);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 /**
@@ -144,14 +139,12 @@ function getGenuineEmails($db) {
 function getSupportRequestsByEmail($db, $email) {
     $sql = "SELECT * FROM support_requests 
             WHERE requester_email = ? 
-            ORDER BY created_at DESC";
+            ORDER BY submitted_at DESC";
     
     $stmt = $db->prepare($sql);
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    $stmt->execute([$email]);
     
-    return $result->fetch_all(MYSQLI_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 /**
@@ -161,8 +154,8 @@ function getEmailsByRequestCount($db, $limit = 50) {
     $sql = "SELECT 
                 requester_email,
                 COUNT(*) as request_count,
-                MAX(created_at) as last_request,
-                MIN(created_at) as first_request,
+                MAX(submitted_at) as last_request,
+                MIN(submitted_at) as first_request,
                 se.is_spam
             FROM support_requests sr
             LEFT JOIN spam_emails se ON sr.requester_email = se.email
@@ -171,11 +164,9 @@ function getEmailsByRequestCount($db, $limit = 50) {
             LIMIT ?";
     
     $stmt = $db->prepare($sql);
-    $stmt->bind_param("i", $limit);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    $stmt->execute([$limit]);
     
-    return $result->fetch_all(MYSQLI_ASSOC);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 /**
@@ -186,8 +177,7 @@ function logSpamEmailAction($db, $email, $action, $reason, $marked_by) {
             VALUES (?, ?, ?, ?)";
     
     $stmt = $db->prepare($sql);
-    $stmt->bind_param("sssi", $email, $action, $reason, $marked_by);
-    $stmt->execute();
+    $stmt->execute([$email, $action, $reason, $marked_by]);
 }
 
 /**
@@ -201,8 +191,8 @@ function getSpamEmailStats($db) {
             COUNT(CASE WHEN is_spam_request = TRUE THEN 1 END) as spam_requests
             FROM support_requests";
     
-    $result = $db->query($sql);
-    return $result->fetch_assoc();
+    $stmt = $db->query($sql);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
 /**
@@ -210,12 +200,10 @@ function getSpamEmailStats($db) {
  */
 function checkSupportRequestForSpam($db, $request_id) {
     // Get request details
-    $sql = "SELECT requester_email FROM support_requests WHERE request_id = ?";
+    $sql = "SELECT requester_email FROM support_requests WHERE id = ?";
     $stmt = $db->prepare($sql);
-    $stmt->bind_param("i", $request_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $request = $result->fetch_assoc();
+    $stmt->execute([$request_id]);
+    $request = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$request) {
         return false;
@@ -227,10 +215,9 @@ function checkSupportRequestForSpam($db, $request_id) {
     // Update request
     $update_sql = "UPDATE support_requests 
                    SET is_spam_request = ?, spam_checked_at = NOW()
-                   WHERE request_id = ?";
+                   WHERE id = ?";
     $update_stmt = $db->prepare($update_sql);
-    $update_stmt->bind_param("ii", $is_spam, $request_id);
-    $update_stmt->execute();
+    $update_stmt->execute([$is_spam, $request_id]);
     
     return $is_spam;
 }
@@ -244,7 +231,6 @@ function markAllRequestsFromEmailAsSpam($db, $email) {
             WHERE requester_email = ?";
     
     $stmt = $db->prepare($sql);
-    $stmt->bind_param("s", $email);
-    return $stmt->execute();
+    return $stmt->execute([$email]);
 }
 ?>

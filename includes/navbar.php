@@ -54,7 +54,12 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                                     Change Password
                                 </a>
                             </li>
-
+                            <li>
+                                <a class="dropdown-item" href="manage_spam_emails.php" data-bs-toggle="modal" data-bs-target="#manageSpammerModal">
+                                    <i class="fas fa-ban me-2"></i>
+                                    Manage Spammer
+                                </a>
+                            </li>
                             <li>
                                 <a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#maintenanceModal">
                                     <i class="fas fa-tools me-2"></i>
