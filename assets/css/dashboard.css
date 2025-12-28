@@ -8,18 +8,13 @@
    Dashboard Page Layout Reset
    ============================================ */
 html, body {
-    height: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
 }
 
 body.dashboard-page {
-    margin: 0 !important;
-    padding: 0 !important;
     overflow: hidden !important;
-    height: 100vh !important;
     background: #f8f9fa !important;
-    position: relative !important;
 }
 
 /* Completely reset all potential spacing elements */
@@ -68,8 +63,7 @@ body.dashboard-page .navbar {
 }
 
 body.dashboard-page .gmail-calendar-container {
-    flex: 1 !important;
-    overflow: hidden !important;
+    overflow: visible !important;  
 }
 
 /* Dashboard alerts positioning */
@@ -154,22 +148,38 @@ body.dashboard-page .gmail-calendar-container > .main-calendar-panel {
    Left Sidebar
    ============================================ */
 .left-sidebar {
+    /* Dimensions - Fixed width, flexible height */
     width: 300px !important;
     min-width: 300px !important;
     max-width: 300px !important;
-    background: white !important;
-    border-right: 1px solid #e0e0e0 !important;
+    
+    /* HEIGHT FIX - This is the critical part */
+    height: auto !important;                        /* Let content determine height */
+    max-height: calc(100vh - 80px) !important;      /* But cap it to viewport */
+    min-height: 0 !important;                       /* Allow shrinking in flex */
+    
+    /* OVERFLOW FIX - Enable scrolling */
+    overflow-y: auto !important;                    /* Vertical scroll when needed */
+    overflow-x: hidden !important;                  /* No horizontal scroll */
+    
+    /* Flexbox configuration */
     display: flex !important;
     flex-direction: column !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    margin-right: 12px !important;
+    flex-shrink: 0 !important;                      /* Don't shrink in parent flex */
+    flex-grow: 0 !important;                        /* Don't grow in parent flex */
+    
+    /* Positioning */
+    position: relative !important;
+    
+    /* Visual styling */
+    background: white !important;
+    border-right: 1px solid #e0e0e0 !important;
     border-radius: 8px !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
-    flex-shrink: 0 !important;
-    flex-grow: 0 !important;
-    position: relative !important;
-    height: calc(100vh - 80px) !important;
+    margin-right: 12px !important;
+    
+    /* Ensure box-sizing is correct */
+    box-sizing: border-box !important;
 }
 
 /* Custom Scrollbar for Left Sidebar */
