@@ -162,12 +162,33 @@ body.dashboard-page .gmail-calendar-container > .main-calendar-panel {
     display: flex !important;
     flex-direction: column !important;
     overflow-y: auto !important;
+    overflow-x: hidden !important;
     margin-right: 12px !important;
     border-radius: 8px !important;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important;
     flex-shrink: 0 !important;
     flex-grow: 0 !important;
     position: relative !important;
+    height: calc(100vh - 80px) !important;
+}
+
+/* Custom Scrollbar for Left Sidebar */
+.left-sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.left-sidebar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.left-sidebar::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.left-sidebar::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 
 /* Mini Calendar */
@@ -403,6 +424,7 @@ body.dashboard-page .gmail-calendar-container > .main-calendar-panel {
     flex-shrink: 0 !important;
 }
 
+/* Calendar Header - Fixed */
 .calendar-header {
     display: flex;
     align-items: center;
@@ -410,6 +432,46 @@ body.dashboard-page .gmail-calendar-container > .main-calendar-panel {
     padding: 16px 24px;
     border-bottom: 1px solid #e0e0e0;
     flex-shrink: 0;
+    background: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+/* Calendar Grid Container - Scrollable */
+.calendar-grid-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* Custom Scrollbar for Calendar Grid */
+.calendar-grid-container::-webkit-scrollbar {
+    width: 10px;
+}
+
+.calendar-grid-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 5px;
+}
+
+.calendar-grid-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+}
+
+.calendar-grid-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Smooth scroll behavior */
+.calendar-grid-container {
+    scroll-behavior: smooth;
+}
+
+.left-sidebar {
+    scroll-behavior: smooth;
 }
 
 .calendar-navigation {
@@ -473,43 +535,39 @@ body.dashboard-page .gmail-calendar-container > .main-calendar-panel {
 .main-calendar-grid {
     display: grid !important;
     grid-template-columns: repeat(7, 1fr) !important;
-    grid-template-rows: auto repeat(6, 1fr) !important;
-    flex: 1 !important;
-    overflow: hidden !important;
-    min-height: 600px !important;
-    height: calc(100vh - 200px) !important;
+    grid-template-rows: auto repeat(6, minmax(120px, auto)) !important;
     width: 100% !important;
     position: relative !important;
+    padding: 0 !important;
 }
 
 .calendar-day-header {
-    padding: 8px 4px;
+    padding: 12px 8px;
     text-align: center;
     font-weight: 600;
-    font-size: 0.75rem;
+    font-size: 0.85rem;
     color: #5f6368;
-    border-bottom: 1px solid #e0e0e0;
+    border-bottom: 2px solid #e0e0e0;
     background-color: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 5;
 }
 
 .main-calendar-day {
     border-right: 1px solid #e0e0e0 !important;
     border-bottom: 1px solid #e0e0e0 !important;
-    padding: 4px !important;
+    padding: 8px !important;
     cursor: pointer !important;
     transition: background-color 0.2s !important;
     position: relative !important;
     overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
-    min-height: 80px !important;
-    height: 80px !important;
+    min-height: 120px !important;
+    height: auto !important;
     width: 100% !important;
     box-sizing: border-box !important;
-}
-
-.main-calendar-day:hover {
-    overflow-y: auto;
 }
 
 .main-calendar-day:hover:not(.empty) {
@@ -561,8 +619,23 @@ body.dashboard-page .gmail-calendar-container > .main-calendar-panel {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-top: 2px;
-    max-height: calc(100% - 20px);
+    padding-top: 4px;
+    max-height: none;
+}
+
+/* Show more events indicator when hovering */
+.main-calendar-day {
+    overflow: visible;
+}
+
+.main-calendar-day:hover .day-events {
+    max-height: 300px;
+    position: relative;
+    z-index: 100;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+    padding: 8px;
 }
 
 /* Custom scrollbar for day events */
@@ -584,18 +657,46 @@ body.dashboard-page .gmail-calendar-container > .main-calendar-panel {
 }
 
 /* Scroll indicator for days with many events */
-.main-calendar-day.has-scroll::after {
-    content: '⋯';
+.main-calendar-day.has-many-events::after {
+    content: '⋮ ' attr(data-event-count) ' events';
     position: absolute;
-    bottom: 2px;
-    right: 4px;
+    bottom: 4px;
+    right: 8px;
     color: #5f6368;
-    font-size: 12px;
-    font-weight: bold;
+    font-size: 11px;
+    font-weight: 600;
     pointer-events: none;
-    background: rgba(255, 255, 255, 0.8);
-    padding: 0 2px;
-    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.95);
+    padding: 3px 8px;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+    white-space: nowrap;
+}
+
+.main-calendar-day.has-many-events::before {
+    content: '▼ Click to view all events';
+    position: absolute;
+    bottom: 28px;
+    right: 8px;
+    font-size: 10px;
+    color: white;
+    background: var(--evsu-maroon);
+    padding: 4px 8px;
+    border-radius: 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    white-space: nowrap;
+    z-index: 10;
+}
+
+.main-calendar-day.has-many-events:hover::before {
+    opacity: 1;
+}
+
+.main-calendar-day:hover.has-many-events::after {
+    background: rgba(255, 215, 0, 0.95);
+    color: var(--evsu-maroon);
 }
 
 .event-item {
@@ -941,19 +1042,32 @@ body.dashboard-page .gmail-calendar-container > .main-calendar-panel {
         padding: 5px;
         min-height: calc(100vh - 56px);
         max-height: none;
+        height: auto;
     }
     
     .left-sidebar {
         width: 100%;
         height: auto;
+        max-height: 400px;
         margin: 0 0 8px 0;
         order: 2;
     }
     
     .main-calendar-panel {
         order: 1;
-        height: 60vh;
+        height: 70vh;
+        min-height: 500px;
         margin: 0;
+        width: 100%;
+        min-width: auto;
+    }
+    
+    .calendar-grid-container {
+        overflow-x: auto;
+    }
+    
+    .main-calendar-day {
+        min-height: 100px;
     }
 }
 

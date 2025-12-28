@@ -485,6 +485,7 @@ include 'includes/navbar.php';
         </div>
 
         <!-- Calendar Grid -->
+        <div class="calendar-grid-container">
         <div class="main-calendar-grid">
             <!-- Day Headers -->
             <div class="calendar-day-header">Sunday</div>
@@ -575,6 +576,7 @@ include 'includes/navbar.php';
                 echo "</div>";
             }
             ?>
+        </div>
         </div>
     </div>
 
