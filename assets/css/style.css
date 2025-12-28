@@ -38,6 +38,8 @@ body {
     background: #f5f7fa;
     color: #333;
     overflow-x: hidden;
+    margin: 0;
+    padding: 0;
 }
 
 /* ============================================
@@ -184,11 +186,7 @@ body {
     background-color: #17a2b8;
 }
 
-.badge-role {
-    padding: 6px 12px;
-    font-size: 12px;
-    font-weight: 600;
-}
+
 
 /* ============================================
    Form Controls
@@ -328,47 +326,17 @@ body {
    Animations
    ============================================ */
 @keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 @keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes slideInLeft {
-    from {
-        opacity: 0;
-        transform: translateX(-30px);
-    }
-    to {
-        opacity: 1;
-        transform: translateX(0);
-    }
-}
-
-.fade-in {
-    animation: fadeIn 0.5s ease;
-}
-
-.fade-in-up {
-    animation: fadeInUp 0.6s ease;
-}
-
-.slide-in-left {
-    animation: slideInLeft 0.5s ease;
-}
+.fade-in { animation: fadeIn 0.5s ease; }
+.fade-in-up { animation: fadeInUp 0.6s ease; }
 
 /* ============================================
    Responsive Utilities
@@ -397,17 +365,68 @@ body {
     }
 }
 
+
 /* ============================================
-   Print Styles
+   Profile Dropdown Styles
    ============================================ */
-@media print {
-    .navbar,
-    .btn,
-    .no-print {
-        display: none !important;
-    }
-    
-    body {
-        background: white;
-    }
+.dropdown-toggle::after {
+    margin-left: 0.5rem;
+}
+
+.dropdown-menu {
+    border: none;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    border-radius: 10px;
+    padding: 0.5rem 0;
+    min-width: 200px;
+}
+
+.dropdown-header {
+    color: var(--evsu-maroon) !important;
+    font-weight: 700;
+    padding: 0.75rem 1rem 0.5rem;
+    font-size: 0.9rem;
+}
+
+.dropdown-item {
+    padding: 0.75rem 1rem;
+    transition: all 0.2s ease;
+    font-weight: 500;
+}
+
+.dropdown-item:hover {
+    background-color: var(--maroon-light);
+    color: var(--evsu-maroon);
+    transform: translateX(5px);
+}
+
+.dropdown-item.text-danger:hover {
+    background-color: #f8d7da;
+    color: var(--danger-red);
+}
+
+.dropdown-item i {
+    width: 20px;
+    text-align: center;
+}
+
+.dropdown-divider {
+    margin: 0.5rem 0;
+    border-color: var(--gray-300);
+}
+
+/* Profile icon hover effect */
+.nav-link:hover .fa-user-circle {
+    color: var(--evsu-gold) !important;
+    transform: scale(1.1);
+    transition: all 0.3s ease;
+}
+
+/* Navbar brand hover effect */
+.navbar-brand:hover {
+    color: var(--evsu-gold) !important;
+}
+
+.navbar-brand i {
+    color: var(--evsu-gold);
 }

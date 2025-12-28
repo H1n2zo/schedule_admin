@@ -1,6 +1,6 @@
 /**
  * EVSU Event Management System
- * Dashboard JavaScript Functions
+ * Gmail Calendar Style Dashboard JavaScript Functions
  * File: assets/js/dashboard.js
  */
 
@@ -13,196 +13,303 @@
     window.selectDate = function(date) {
         const currentUrl = new URL(window.location.href);
         currentUrl.searchParams.set('date', date);
+        currentUrl.searchParams.delete('event'); // Clear event selection when selecting date
         window.location.href = currentUrl.toString();
     };
 
     // ============================================
-    // View Request Details
+    // Show Day Events Modal
     // ============================================
-    window.viewRequest = function(id) {
-        window.location.href = 'view_request.php?id=' + id;
+    window.showDayEvents = function(date) {
+        // Format the date for display
+        const dateObj = new Date(date + 'T00:00:00');
+        const formattedDate = dateObj.toLocaleDateString('en-US', { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric' 
+        });
+        
+        // Update modal title
+        document.getElementById('dayEventsModalLabel').textContent = `Events for ${formattedDate}`;
+        
+        // Show loading state
+        const modalContent = document.getElementById('dayEventsContent');
+        modalContent.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border" style="color: var(--evsu-maroon);" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3 text-muted">Loading events for this day...</p>
+            </div>
+        `;
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('dayEventsModal'));
+        modal.show();
+        
+        // Fetch events for this date
+        fetch('get_day_events.php?date=' + date)
+            .then(response => {
+
+                return response.text();
+            })
+            .then(html => {
+
+                // Check if response is JSON (starts with { or [)
+                if (html.trim().startsWith('{') || html.trim().startsWith('[')) {
+                    console.error('Received JSON instead of HTML:', html);
+                    modalContent.innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            Unexpected response format. Please check the server configuration.
+                        </div>
+                    `;
+                } else {
+                    modalContent.innerHTML = html;
+                }
+            })
+            .catch(error => {
+                console.error('Error loading day events:', error);
+                modalContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Error loading events for this day. Please try again.
+                    </div>
+                `;
+            });
     };
 
     // ============================================
-    // Filter Requests by Status
+    // Month Navigation Functions
+    // ============================================
+    window.navigateMonth = function(direction) {
+        const currentUrl = new URL(window.location.href);
+        const currentMonth = parseInt(currentUrl.searchParams.get('month')) || new Date().getMonth() + 1;
+        const currentYear = parseInt(currentUrl.searchParams.get('year')) || new Date().getFullYear();
+        
+        let newMonth = currentMonth + direction;
+        let newYear = currentYear;
+        
+        if (newMonth > 12) {
+            newMonth = 1;
+            newYear++;
+        } else if (newMonth < 1) {
+            newMonth = 12;
+            newYear--;
+        }
+        
+        currentUrl.searchParams.set('month', newMonth);
+        currentUrl.searchParams.set('year', newYear);
+        currentUrl.searchParams.delete('date'); // Clear selected date when changing months
+        window.location.href = currentUrl.toString();
+    };
+
+    window.navigateToToday = function() {
+        const today = new Date();
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('month', today.getMonth() + 1);
+        currentUrl.searchParams.set('year', today.getFullYear());
+        currentUrl.searchParams.set('date', today.toISOString().split('T')[0]);
+        window.location.href = currentUrl.toString();
+    };
+
+    // ============================================
+    // Status Filter Functions
     // ============================================
     window.filterByStatus = function(status) {
-        const items = document.querySelectorAll('.request-list-item');
-        const emptyMessage = document.getElementById('emptyMessage');
-        let visibleCount = 0;
-        
-        items.forEach(item => {
-            if (status === 'all' || item.dataset.status === status) {
-                item.style.display = 'block';
-                visibleCount++;
-            } else {
-                item.style.display = 'none';
-            }
-        });
-        
-        // Handle empty message
-        if (emptyMessage) {
-            if (visibleCount === 0) {
-                emptyMessage.style.display = 'block';
-                const statusText = status === 'all' ? '' : status + ' ';
-                emptyMessage.textContent = `No ${statusText}requests found.`;
-            } else {
-                emptyMessage.style.display = 'none';
-            }
-        } else if (visibleCount === 0) {
-            const requestsList = document.getElementById('requestsList');
-            if (requestsList) {
-                const msg = document.createElement('p');
-                msg.id = 'emptyMessage';
-                msg.className = 'text-muted';
-                const statusText = status === 'all' ? '' : status + ' ';
-                msg.textContent = `No ${statusText}requests found.`;
-                requestsList.parentNode.insertBefore(msg, requestsList);
-            }
-        }
-    };
-
-    // ============================================
-    // Calendar Navigation - FIXED: Remove status parameter
-    // ============================================
-    window.navigateMonth = function(month, year) {
-        // Build clean URL with only month and year (removes status parameter)
-        window.location.href = 'dashboard.php?month=' + month + '&year=' + year;
-    };
-
-    // ============================================
-    // Clear Date Filter
-    // ============================================
-    window.clearDateFilter = function() {
         const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.delete('date');
+        if (status === 'all') {
+            currentUrl.searchParams.delete('filter');
+        } else {
+            currentUrl.searchParams.set('filter', status);
+        }
+        currentUrl.searchParams.delete('date'); // Clear selected date when filtering
         window.location.href = currentUrl.toString();
     };
 
     // ============================================
-    // Highlight Today's Events
+    // View Event in Modal
     // ============================================
-    function highlightTodaysEvents() {
-        const today = new Date().toISOString().split('T')[0];
-        const todayCell = document.querySelector(`.calendar-day[data-date="${today}"]`);
-        
-        if (todayCell && !todayCell.classList.contains('today')) {
-            todayCell.classList.add('today');
+    window.viewEvent = function(eventId, event) {
+        if (event) {
+            event.stopPropagation(); // Prevent date selection
         }
+        
+        // Load event details via AJAX and show modal
+        loadEventDetails(eventId);
+    };
+
+    // ============================================
+    // Load Event Details for Modal
+    // ============================================
+    function loadEventDetails(eventId) {
+        // Show loading state
+        const modalContent = document.getElementById('eventDetailsContent');
+        modalContent.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border" style="color: var(--evsu-maroon);" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3 text-muted">Loading event details...</p>
+            </div>
+        `;
+        
+        // Show the modal
+        const modal = new bootstrap.Modal(document.getElementById('eventDetailsModal'));
+        modal.show();
+        
+        // Fetch event details
+        fetch('get_event_details.php?id=' + eventId)
+            .then(response => response.text())
+            .then(html => {
+                modalContent.innerHTML = html;
+            })
+            .catch(error => {
+                console.error('Error loading event details:', error);
+                modalContent.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Error loading event details. Please try again.
+                    </div>
+                `;
+            });
     }
 
     // ============================================
-    // Initialize on Page Load
+    // Approve/Decline Event Functions
     // ============================================
-    document.addEventListener('DOMContentLoaded', function() {
-        highlightTodaysEvents();
-        initializeCalendarInteractions();
-        initializeFilterButtons();
-    });
+    window.approveEvent = function(eventId, eventName, eventOrg, eventDate, eventTime) {
 
-    // ============================================
-    // Calendar Interactions
-    // ============================================
-    function initializeCalendarInteractions() {
-        const calendarDays = document.querySelectorAll('.calendar-day:not(.empty)');
         
-        calendarDays.forEach(day => {
-            // Add keyboard accessibility
-            day.setAttribute('tabindex', '0');
-            
-            // Keyboard navigation
-            day.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    const date = this.getAttribute('data-date') || this.getAttribute('onclick').match(/'([^']+)'/)[1];
-                    selectDate(date);
+        // Populate event details in the modal
+        const eventDetails = document.getElementById('approveEventDetails');
+        if (eventDetails) {
+            eventDetails.innerHTML = `
+                <strong>${eventName}</strong><br>
+                ${eventOrg}<br>
+                ${eventDate} at ${eventTime}
+            `;
+        } else {
+            console.error('approveEventDetails element not found');
+        }
+        
+        const confirmBtn = document.getElementById('confirmApproveBtn');
+        if (confirmBtn) {
+            confirmBtn.onclick = function() {
+
+                updateEventStatus(eventId, 'approved');
+            };
+        } else {
+            console.error('confirmApproveBtn element not found');
+        }
+        
+        const modalElement = document.getElementById('approveEventModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        } else {
+            console.error('approveEventModal element not found');
+        }
+    };
+
+    window.declineEvent = function(eventId, eventName, eventOrg, eventDate, eventTime) {
+
+        
+        // Populate event details in the modal
+        const eventDetails = document.getElementById('declineEventDetails');
+        if (eventDetails) {
+            eventDetails.innerHTML = `
+                <strong>${eventName}</strong><br>
+                ${eventOrg}<br>
+                ${eventDate} at ${eventTime}
+            `;
+        } else {
+            console.error('declineEventDetails element not found');
+        }
+        
+        // Clear previous reason
+        const reasonField = document.getElementById('declineReason');
+        if (reasonField) {
+            reasonField.value = '';
+        } else {
+            console.error('declineReason element not found');
+        }
+        
+        const confirmBtn = document.getElementById('confirmDeclineBtn');
+        if (confirmBtn) {
+            confirmBtn.onclick = function() {
+
+                const reason = document.getElementById('declineReason').value.trim();
+                if (reason === '') {
+                    alert('Please provide a reason for declining this request.');
+                    return;
                 }
-            });
-        });
-    }
 
-    // ============================================
-    // Initialize Filter Buttons
-    // ============================================
-    function initializeFilterButtons() {
-        const filterButtons = document.querySelectorAll('.btn-check');
+                updateEventStatus(eventId, 'declined', reason);
+            };
+        } else {
+            console.error('confirmDeclineBtn element not found');
+        }
         
-        filterButtons.forEach(button => {
-            button.addEventListener('change', function() {
-                const status = this.id.replace('filter', '').toLowerCase();
-                filterByStatus(status);
-            });
-        });
-    }
-
-    // ============================================
-    // Quick Stats Update (for dynamic updates)
-    // ============================================
-    window.updateStats = function(pending, approved, pendingActions) {
-        const pendingEl = document.querySelector('.stats-card .text-warning');
-        const approvedEl = document.querySelector('.stats-card .text-success');
-        const actionsEl = document.querySelector('.stats-card .text-info');
-        
-        if (pendingEl) pendingEl.textContent = pending;
-        if (approvedEl) approvedEl.textContent = approved;
-        if (actionsEl) actionsEl.textContent = pendingActions;
-    };
-
-    // ============================================
-    // Export Calendar Data (Future Feature)
-    // ============================================
-    window.exportCalendar = function(format = 'csv') {
-        showToast('Export feature coming soon!', 'info');
-        // TODO: Implement calendar export functionality
-    };
-
-    // ============================================
-    // Print Calendar View
-    // ============================================
-    window.printCalendar = function() {
-        window.print();
-    };
-
-    // ============================================
-    // Search Requests (Live Search)
-    // ============================================
-    window.searchRequests = function(searchTerm) {
-        const items = document.querySelectorAll('.request-list-item');
-        searchTerm = searchTerm.toLowerCase();
-        let visibleCount = 0;
-        
-        items.forEach(item => {
-            const eventName = item.querySelector('h6').textContent.toLowerCase();
-            const organization = item.querySelector('small').textContent.toLowerCase();
-            
-            if (eventName.includes(searchTerm) || organization.includes(searchTerm)) {
-                item.style.display = 'block';
-                visibleCount++;
-            } else {
-                item.style.display = 'none';
-            }
-        });
-        
-        // Update empty message
-        const emptyMessage = document.getElementById('emptyMessage');
-        if (emptyMessage) {
-            if (visibleCount === 0) {
-                emptyMessage.style.display = 'block';
-                emptyMessage.textContent = 'No requests match your search.';
-            } else {
-                emptyMessage.style.display = 'none';
-            }
+        const modalElement = document.getElementById('declineEventModal');
+        if (modalElement) {
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+        } else {
+            console.error('declineEventModal element not found');
         }
     };
 
-    // ============================================
-    // Add Search Input Event Listener
-    // ============================================
-    const searchInput = document.getElementById('searchRequests');
-    if (searchInput) {
-        searchInput.addEventListener('input', debounce(function(e) {
-            searchRequests(e.target.value);
-        }, 300));
+    function updateEventStatus(eventId, status, reason = '') {
+
+        
+        const formData = new FormData();
+        formData.append('id', eventId);
+        formData.append('status', status);
+        if (reason) {
+            formData.append('reason', reason);
+        }
+        
+
+        
+        fetch('update_status.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => {
+
+            return response.text();
+        })
+        .then(text => {
+
+            try {
+                const data = JSON.parse(text);
+
+                
+                if (data.success) {
+                    // Close all modals
+                    const modals = document.querySelectorAll('.modal');
+                    modals.forEach(modal => {
+                        const bsModal = bootstrap.Modal.getInstance(modal);
+                        if (bsModal) bsModal.hide();
+                    });
+                    
+                    // Reload the page to show updated status
+                    window.location.reload();
+                } else {
+                    alert('Error updating event status: ' + (data.message || 'Unknown error'));
+                }
+            } catch (e) {
+                console.error('Failed to parse JSON:', e);
+                console.error('Response text:', text);
+                alert('Invalid response from server. Check console for details.');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating event status:', error);
+            alert('Error updating event status. Please try again.');
+        });
     }
 
 })();
