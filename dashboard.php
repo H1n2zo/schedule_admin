@@ -1,7 +1,7 @@
 <?php
 /**
  * CRCY Dispatch System
- * CRCY Admin Dashboard - Support Request Management
+ * CRCY Admin Dashboard - Support Request Management with Statistics
  * File: dashboard.php
  */
 
@@ -213,12 +213,35 @@ if ($selectedDate) {
     $displayRequests = $stmt->fetchAll();
 }
 
+// ==================== STATISTICS SECTION ====================
 
+// Get overall statistics (all time)
+$stmt = $db->prepare("SELECT COUNT(*) FROM support_requests WHERE status = 'pending'");
+$stmt->execute();
+$overallPending = $stmt->fetchColumn();
 
+$stmt = $db->prepare("SELECT COUNT(*) FROM support_requests WHERE status = 'approved'");
+$stmt->execute();
+$overallApproved = $stmt->fetchColumn();
 
+$stmt = $db->prepare("SELECT COUNT(*) FROM support_requests WHERE status = 'declined'");
+$stmt->execute();
+$overallDeclined = $stmt->fetchColumn();
 
+$overallTotal = $overallPending + $overallApproved + $overallDeclined;
 
-// Stats already calculated above for current month
+// Calculate percentages for overall stats
+$overallApprovedPercent = $overallTotal > 0 ? round(($overallApproved / $overallTotal) * 100, 1) : 0;
+$overallDeclinedPercent = $overallTotal > 0 ? round(($overallDeclined / $overallTotal) * 100, 1) : 0;
+$overallPendingPercent = $overallTotal > 0 ? round(($overallPending / $overallTotal) * 100, 1) : 0;
+
+// Calculate percentages for current month
+$monthTotal = $totalPending + $totalApproved + $totalDeclined;
+$monthApprovedPercent = $monthTotal > 0 ? round(($totalApproved / $monthTotal) * 100, 1) : 0;
+$monthDeclinedPercent = $monthTotal > 0 ? round(($totalDeclined / $monthTotal) * 100, 1) : 0;
+$monthPendingPercent = $monthTotal > 0 ? round(($totalPending / $monthTotal) * 100, 1) : 0;
+
+// ==================== END STATISTICS SECTION ====================
 
 // Calendar helper functions
 $firstDay = mktime(0, 0, 0, $currentMonth, 1, $currentYear);
@@ -343,7 +366,92 @@ include 'includes/navbar.php';
             </div>
         </div>
 
-
+        <!-- Statistics Section -->
+        <div class="statistics-section">
+            <h6 class="statistics-title">Statistics</h6>
+            
+            <!-- Overall Stats -->
+            <div class="stat-card overall-stats">
+                <div class="stat-header">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Overall (All Time)</span>
+                </div>
+                <div class="stat-total">
+                    <div class="stat-number"><?= number_format($overallTotal) ?></div>
+                    <div class="stat-label">Total Requests</div>
+                </div>
+                <div class="stat-breakdown">
+                    <div class="stat-row approved">
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: <?= $overallApprovedPercent ?>%"></div>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-count"><?= $overallApproved ?></span>
+                            <span class="stat-percent"><?= $overallApprovedPercent ?>%</span>
+                        </div>
+                    </div>
+                    <div class="stat-row declined">
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: <?= $overallDeclinedPercent ?>%"></div>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-count"><?= $overallDeclined ?></span>
+                            <span class="stat-percent"><?= $overallDeclinedPercent ?>%</span>
+                        </div>
+                    </div>
+                    <div class="stat-row pending">
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: <?= $overallPendingPercent ?>%"></div>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-count"><?= $overallPending ?></span>
+                            <span class="stat-percent"><?= $overallPendingPercent ?>%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Monthly Stats -->
+            <div class="stat-card month-stats">
+                <div class="stat-header">
+                    <i class="fas fa-calendar-alt"></i>
+                    <span><?= date('F Y', mktime(0, 0, 0, $currentMonth, 1, $currentYear)) ?></span>
+                </div>
+                <div class="stat-total">
+                    <div class="stat-number"><?= number_format($monthTotal) ?></div>
+                    <div class="stat-label">This Month</div>
+                </div>
+                <div class="stat-breakdown">
+                    <div class="stat-row approved">
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: <?= $monthApprovedPercent ?>%"></div>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-count"><?= $totalApproved ?></span>
+                            <span class="stat-percent"><?= $monthApprovedPercent ?>%</span>
+                        </div>
+                    </div>
+                    <div class="stat-row declined">
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: <?= $monthDeclinedPercent ?>%"></div>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-count"><?= $totalDeclined ?></span>
+                            <span class="stat-percent"><?= $monthDeclinedPercent ?>%</span>
+                        </div>
+                    </div>
+                    <div class="stat-row pending">
+                        <div class="stat-bar-container">
+                            <div class="stat-bar" style="width: <?= $monthPendingPercent ?>%"></div>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-count"><?= $totalPending ?></span>
+                            <span class="stat-percent"><?= $monthPendingPercent ?>%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
         
     <!-- Main Calendar Panel -->

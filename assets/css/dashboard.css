@@ -993,3 +993,177 @@ body.dashboard-page {
     overflow-y: hidden !important;
     overflow-x: hidden !important;
 }
+
+/* Statistics Section Styles */
+.statistics-section {
+    padding: 20px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    border-top: 1px solid #e0e0e0 !important;
+}
+
+.statistics-title {
+    font-weight: 600;
+    color: var(--evsu-maroon);
+    margin-bottom: 15px;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-card {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 15px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transform: translateY(-2px);
+}
+
+.stat-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: var(--evsu-maroon);
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.stat-header i {
+    font-size: 1rem;
+}
+
+.stat-total {
+    text-align: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--evsu-maroon);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+.stat-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.stat-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stat-bar-container {
+    height: 24px;
+    background: #e9ecef;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+.stat-bar {
+    height: 100%;
+    border-radius: 12px;
+    transition: width 0.8s ease-in-out;
+    position: relative;
+}
+
+/* Status-specific colors */
+.stat-row.approved .stat-bar {
+    background: linear-gradient(90deg, #28a745 0%, #34ce57 100%);
+}
+
+.stat-row.declined .stat-bar {
+    background: linear-gradient(90deg, #dc3545 0%, #f05361 100%);
+}
+
+.stat-row.pending .stat-bar {
+    background: linear-gradient(90deg, #ffc107 0%, #ffd454 100%);
+}
+
+.stat-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: #6c757d;
+    padding: 0 4px;
+}
+
+.stat-count {
+    font-weight: 600;
+    color: #495057;
+}
+
+.stat-percent {
+    font-weight: 500;
+    color: #6c757d;
+}
+
+/* Overall vs Monthly differentiation */
+.overall-stats {
+    border-left: 4px solid var(--evsu-gold);
+}
+
+.month-stats {
+    border-left: 4px solid #17a2b8;
+}
+
+/* Animation on load */
+@keyframes slideInStat {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.stat-card {
+    animation: slideInStat 0.5s ease-out;
+}
+
+.stat-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.stat-card:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .statistics-section {
+        padding: 15px !important;
+    }
+    
+    .stat-number {
+        font-size: 1.5rem;
+    }
+    
+    .stat-card {
+        padding: 12px;
+    }
+}
